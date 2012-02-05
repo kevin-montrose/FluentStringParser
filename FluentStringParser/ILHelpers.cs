@@ -211,6 +211,11 @@ namespace FluentStringParser
                 return typeof(float).GetMethod("Parse", new[] { typeof(string) });
             }
 
+            if (t == typeof(decimal) || t == typeof(decimal?))
+            {
+                return typeof(decimal).GetMethod("Parse", new[] { typeof(string) });
+            }
+
             throw new NotImplementedException("No parser for " + t.Name + " defined");
         }
 

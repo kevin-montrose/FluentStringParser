@@ -305,5 +305,28 @@ namespace FluentStringParserTests
             runRegex();
             Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
         }
+
+        class DecimalObject
+        {
+            public decimal A { get; set; }
+            public decimal? B { get; set; }
+        }
+
+        [TestMethod]
+        public void Decimals()
+        {
+            var parser =
+                FStringParser
+                    .TakeUntil<DecimalObject>(",", typeof(DecimalObject).GetProperty("A"))
+                    .TakeRest(typeof(DecimalObject).GetProperty("B"))
+                    .Seal();
+
+            var obj = new DecimalObject();
+
+            parser("123.45,8675309", obj);
+
+            Assert.AreEqual(123.45m, obj.A);
+            Assert.AreEqual(8675309m, obj.B);
+        }
     }
 }
