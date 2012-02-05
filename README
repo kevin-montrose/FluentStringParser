@@ -1,1 +1,35 @@
-Experimenting with fast, narrow use case, string parsing
+Experimenting with fast, narrow use case, string parsing.
+
+Add a reference and
+
+  using FluentStringParser;
+
+to your code to get start.
+
+Start compose a parser with
+
+  FStringTemplate.TakeUntil<MyObject>(...)
+  FStringTemplate.SkipUntil<MyObject>(...)
+  FStringTemplate.MoveN<MyObject>(...)
+
+you can chain calls to build more interesting parsers
+
+  FStringTemplate
+    .SkipUntil<MyObject>(":=")
+    .TakeUntil<MyObject>(";", _MyObjectProp)
+
+Parsers can only set fields and properties on reference types,
+and only primitive number types, DateTimes, and strings can
+be parsed at this time.
+
+Else and TakeRest are available only as the second or later
+directives in a parser.  Only one of each may appear in a 
+single parser.
+
+Else can only appear as the last directive to a parser.
+
+Once finished composing, create a delegate for actual use
+by calling Seal().
+
+Seal() returns an Action<string, MyObject>, allowing for
+the reuse of scratch objects.
