@@ -1,0 +1,15 @@
+# Brilliant files
+.DS_Store*
+Thumbs.db
+
+# bin and obj
+FluentStringParser/bin/*
+FluentStringParser/obj/*
+FluentStringParserTests/bin/*
+FluentStringParserTests/obj/*
+
+# Tests don't need to be checked in
+TestResults/*
+
+# .suo
+*.suo
