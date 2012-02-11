@@ -15,7 +15,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> SkipUntil<T>(string needle) where T : class
+        public static FStringTemplate<T> Till<T>(string needle) where T : class
         {
             return new FSkipUntil<T> { Until = needle };
         }
@@ -27,9 +27,9 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> SkipUntil<T>(this FStringTemplate<T> template, string str) where T : class
+        public static FStringTemplate<T> Till<T>(this FStringTemplate<T> template, string needle) where T : class
         {
-            return template.Append(SkipUntil<T>(str));
+            return template.Append(Till<T>(needle));
         }
 
         private static void ValidateMember<T>(MemberInfo member, string dateFormat)
@@ -70,19 +70,19 @@ namespace FluentStringParser
 
         /// <summary>
         /// Takes characters from the input string, and puts them in the property
-        /// or field referenced by <paramref name="member"/> until <paramref name="needle"/> is encountered.
+        /// or field referenced by <paramref name="member"/> until <paramref name="until"/> is encountered.
         /// 
-        /// <paramref name="needle"/> is not placed in <paramref name="member"/>.
+        /// <paramref name="until"/> is not placed in <paramref name="member"/>.
         /// 
-        /// Subsequent directives begin after <paramref name="needle"/>
+        /// Subsequent directives begin after <paramref name="until"/>
         /// 
-        /// If <paramref name="needle"/> is not found, any Else directive is run.
+        /// If <paramref name="until"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> TakeUntil<T>(string needle, MemberInfo member, string dateFormat = null) where T : class
+        public static FStringTemplate<T> Take<T>(string until, MemberInfo member, string dateFormat = null) where T : class
         {
             ValidateMember<T>(member, dateFormat);
 
-            return new FTakeUntil<T> { Until = needle, Into = member, DateFormat = dateFormat };
+            return new FTakeUntil<T> { Until = until, Into = member, DateFormat = dateFormat };
         }
 
         /// <summary>
@@ -95,9 +95,9 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> TakeUntil<T>(this FStringTemplate<T> template, string str, MemberInfo member, string dateFormat = null) where T : class
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, MemberInfo member, string dateFormat = null) where T : class
         {
-            return template.Append(TakeUntil<T>(str, member, dateFormat));
+            return template.Append(Take<T>(until, member, dateFormat));
         }
 
         /// <summary>
@@ -131,27 +131,49 @@ namespace FluentStringParser
         /// <summary>
         /// Advances a certain number of characters in the string.
         /// 
-        /// Use negative values to move backwards.
-        /// 
         /// If the current index into the string is moved out of bounds,
         /// the directive fails.
         /// </summary>
-        public static FStringTemplate<T> MoveN<T>(int n) where T : class
+        public static FStringTemplate<T> Skip<T>(int n) where T : class
         {
+            if (n <= 0) throw new ArgumentException("Skip expects a positive, non-zero, value; found [" + n + "]");
+
             return new FMoveN<T> { N = n };
         }
 
         /// <summary>
         /// Advances a certain number of characters in the string.
         /// 
-        /// Use negative values to move backwards.
+        /// If the current index into the string is moved out of bounds,
+        /// the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Skip<T>(this FStringTemplate<T> template, int n) where T : class
+        {
+            return template.Append(Skip<T>(n));
+        }
+
+        /// <summary>
+        /// Backtracks a certain number of characters in the string.
         /// 
         /// If the current index into the string is moved out of bounds,
         /// the directive fails.
         /// </summary>
-        public static FStringTemplate<T> MoveN<T>(this FStringTemplate<T> template, int n) where T : class
+        public static FStringTemplate<T> Back<T>(int n) where T : class
         {
-            return template.Append(MoveN<T>(n));
+            if (n <= 0) throw new ArgumentException("Back expects a positive, non-zero, value; found [" + n + "]");
+
+            return new FMoveN<T> { N = -1 * n };
+        }
+
+        /// <summary>
+        /// Backtracks a certain number of characters in the string.
+        /// 
+        /// If the current index into the string is moved out of bounds,
+        /// the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Back<T>(this FStringTemplate<T> template, int n) where T : class
+        {
+            return template.Append(Back<T>(n));
         }
     }
 }
