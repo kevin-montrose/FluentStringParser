@@ -55,9 +55,52 @@ namespace FluentStringParser
             /// </summary>
             internal abstract void Emit(ILGenerator il);
 
-            public virtual Action<string, T> Seal()
+            /// <summary>
+            /// Returns the "call this if things go wrong" delegate
+            /// to bake into the parser when Seal() is called
+            /// </summary>
+            internal virtual Action<string, T> GetOnFailure()
             {
-                throw new InvalidOperationException("Cannot Seal " + this.GetType().Name);
+                throw new NotImplementedException();
+            }
+
+            public Action<string, T> Seal()
+            {
+                var onFailure = GetOnFailure();
+
+                var name = "fstring" + GetType().Name.ToLowerInvariant() + Guid.NewGuid();
+                var method = new DynamicMethod(name, typeof(void), new[] { typeof(string), typeof(T), typeof(Action<string, T>) }, true);
+
+                var il = method.GetILGenerator();
+
+                il.Initialize(NeededStringScratchSpace);
+
+                // Put the whole thing in a try/catch
+                il.BeginExceptionBlock();
+
+                Emit(il);
+
+                // Being the catch block for the method wide try/catch
+                il.BeginCatchBlock(typeof(Exception));                          // exception
+                var skipFailure = il.DefineLabel();
+
+                // Don't re-run the failure callback,
+                il.Emit(OpCodes.Isinst, typeof(ILHelpers.ControlException));    // bool
+                il.Emit(OpCodes.Brtrue_S, skipFailure);                         // --empty--
+
+                il.CallFailureAndReturn<T>(0, dontReturn: true);                // --empty--
+
+                il.MarkLabel(skipFailure);
+
+                il.EndExceptionBlock();
+
+                il.Emit(OpCodes.Ret);
+
+                var inner = (Action<string, T, Action<string, T>>)method.CreateDelegate(typeof(Action<string, T, Action<string, T>>));
+
+                Action<string, T> ret = (str, t) => inner(str, t, onFailure);
+
+                return ret;
             }
         }
 
@@ -76,6 +119,24 @@ namespace FluentStringParser
                 {
                     template.Emit(il);
                 }
+            }
+
+            internal override Action<string, T> GetOnFailure()
+            {
+                var elses = Templates.OfType<FElse<T>>();
+                if (elses.Count() > 1) throw new InvalidOperationException("Only one else can be used in a template");
+
+                Action<string, T> onFailure;
+                if (elses.Count() == 1)
+                {
+                    onFailure = elses.Single().Call;
+                }
+                else
+                {
+                    onFailure = (a, b) => { };
+                }
+
+                return onFailure;
             }
 
             internal override FStringTemplate<T> Append(FStringTemplate<T> template)
@@ -103,56 +164,6 @@ namespace FluentStringParser
                 }
 
                 return new Combo<T> { Templates = copy };
-            }
-
-            public override Action<string, T> Seal()
-            {
-                var elses = Templates.OfType<FElse<T>>();
-                if (elses.Count() > 1) throw new InvalidOperationException("Only one else can be used in a template");
-
-                Action<string, T> onFailure;
-                if (elses.Count() == 1)
-                {
-                    onFailure = elses.Single().Call;
-                }
-                else
-                {
-                    onFailure = (a, b) => { };
-                }
-
-                var name = "fstringcombo" + Guid.NewGuid();
-                var method = new DynamicMethod(name, typeof(void), new[] { typeof(string), typeof(T), typeof(Action<string, T>) }, true);
-
-                var il = method.GetILGenerator();
-
-                il.Initialize(NeededStringScratchSpace);
-
-                // Put the whole thing in a try/catch
-                il.BeginExceptionBlock();
-
-                Emit(il);
-
-                // Being the catch block for the method wide try/catch
-                il.BeginCatchBlock(typeof(Exception));                          // exception
-                var skipFailure = il.DefineLabel();
-                
-                // Don't re-run the failure callback,
-                il.Emit(OpCodes.Isinst, typeof(ILHelpers.ControlException));    // bool
-                il.Emit(OpCodes.Brtrue_S, skipFailure);                         // --empty--
-
-                il.CallFailureAndReturn<T>(0, dontReturn: true);                // --empty--
-
-                il.MarkLabel(skipFailure);
-
-                il.EndExceptionBlock();
-
-                il.Emit(OpCodes.Ret);
-
-                var inner = (Action<string, T, Action<string, T>>)method.CreateDelegate(typeof(Action<string, T, Action<string, T>>));
-
-                Action<string, T> ret = (str, t) => inner(str, t, onFailure);
-
-                return ret;
             }
         }
 
@@ -283,41 +294,9 @@ namespace FluentStringParser
                 il.ParseAndSet(Into, DateFormat);
             }
 
-            public override Action<string, T> Seal()
+            internal override Action<string, T> GetOnFailure()
             {
-                var name = "fstringtakeuntil" + Guid.NewGuid();
-                var method = new DynamicMethod(name, typeof(void), new[] { typeof(string), typeof(T), typeof(Action<string, T>) }, true);
-
-                var il = method.GetILGenerator();
-
-                il.Initialize(NeededStringScratchSpace);
-
-                // Put the whole thing in a try/catch
-                il.BeginExceptionBlock();
-
-                Emit(il);
-
-                // Being the catch block for the method wide try/catch
-                il.BeginCatchBlock(typeof(Exception));                          // exception
-                var skipFailure = il.DefineLabel();
-
-                // Don't re-run the failure callback,
-                il.Emit(OpCodes.Isinst, typeof(ILHelpers.ControlException));    // bool
-                il.Emit(OpCodes.Brtrue_S, skipFailure);                         // --empty--
-
-                il.CallFailureAndReturn<T>(0, dontReturn: true);                // --empty--
-
-                il.MarkLabel(skipFailure);
-
-                il.EndExceptionBlock();
-
-                il.Emit(OpCodes.Ret);
-
-                var inner = (Action<string, T, Action<string, T>>)method.CreateDelegate(typeof(Action<string, T, Action<string, T>>));
-
-                Action<string, T> ret = (str, t) => inner(str, t, (a, b) => { });
-
-                return ret;
+                return (a, b) => { };
             }
         }
 
@@ -465,41 +444,9 @@ namespace FluentStringParser
                 il.StoreAccumulator();          // --empty--
             }
 
-            public override Action<string, T> Seal()
+            internal override Action<string, T> GetOnFailure()
             {
-                var name = "fstringtaken" + Guid.NewGuid();
-                var method = new DynamicMethod(name, typeof(void), new[] { typeof(string), typeof(T), typeof(Action<string, T>) }, true);
-
-                var il = method.GetILGenerator();
-
-                il.Initialize(NeededStringScratchSpace);
-
-                // Put the whole thing in a try/catch
-                il.BeginExceptionBlock();
-
-                Emit(il);
-
-                // Being the catch block for the method wide try/catch
-                il.BeginCatchBlock(typeof(Exception));                          // exception
-                var skipFailure = il.DefineLabel();
-
-                // Don't re-run the failure callback,
-                il.Emit(OpCodes.Isinst, typeof(ILHelpers.ControlException));    // bool
-                il.Emit(OpCodes.Brtrue_S, skipFailure);                         // --empty--
-
-                il.CallFailureAndReturn<T>(0, dontReturn: true);                // --empty--
-
-                il.MarkLabel(skipFailure);
-
-                il.EndExceptionBlock();
-
-                il.Emit(OpCodes.Ret);
-
-                var inner = (Action<string, T, Action<string, T>>)method.CreateDelegate(typeof(Action<string, T, Action<string, T>>));
-
-                Action<string, T> ret = (str, t) => inner(str, t, (a, b) => { });
-
-                return ret;
+                return (a, b) => { };
             }
         }
     }
