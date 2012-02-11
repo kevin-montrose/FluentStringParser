@@ -459,6 +459,10 @@ namespace FluentStringParser
 
                 // branch here when we're ready to continue with parsing
                 il.MarkLabel(finished);
+                il.LoadAccumulator();           // accumulator
+                il.Emit(OpCodes.Ldc_I4, N);     // N accumulator
+                il.Emit(OpCodes.Add);           // <accumulator+N>
+                il.StoreAccumulator();          // --empty--
             }
 
             public override Action<string, T> Seal()

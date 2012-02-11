@@ -130,12 +130,10 @@ namespace FluentStringParserTests
                 .Take(" ", LogProp("Tt"))
                 .Take(" ", LogProp("ResponseCode"))
                 .Take(" ", LogProp("Bytes"))
-                
-                // The hell is up with TermState?
-                .Till("----")
-                .Back(4)
-                .Take(" ", LogProp("TermState"))
-
+                .Till("- ")
+                .Till("- ")
+                .Take(4, LogProp("TermState"))
+                .Till(" ")
                 .Take("/", LogProp("ActConn"))
                 .Take("/", LogProp("FeConn"))
                 .Take("/", LogProp("BeConn"))
@@ -159,7 +157,12 @@ namespace FluentStringParserTests
                 .Take(" ", LogProp("Method"))
                 .Take(" ", LogProp("Uri"))
                 .Take("\"", LogProp("HttpVersion"))
-                .Else((str, row) => { throw new Exception("Couldn't parse: " + str); })
+                .Else(
+                    (str, row) => 
+                    { 
+                        throw new Exception("Couldn't parse: " + str); 
+                    }
+                )
                 .Seal();
         }
 
