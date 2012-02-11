@@ -8,15 +8,14 @@ to your code to get start.
 
 Start compose a parser with
 
-  FStringTemplate.TakeUntil<MyObject>(...)
-  FStringTemplate.SkipUntil<MyObject>(...)
-  FStringTemplate.MoveN<MyObject>(...)
+  FStringTemplate.Take<MyObject>(...)
+  FStringTemplate.Skip<MyObject>(...)
 
 you can chain calls to build more interesting parsers
 
   FStringTemplate
-    .SkipUntil<MyObject>(":=")
-    .TakeUntil<MyObject>(";", _MyObjectProp)
+    .Skip<MyObject>(":=")
+    .Take(";", _MyObjectProp)
 
 Parsers can only set fields and properties on reference types,
 and only primitive number types, DateTimes, and strings can
