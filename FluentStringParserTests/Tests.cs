@@ -328,5 +328,29 @@ namespace FluentStringParserTests
             Assert.AreEqual(123.45m, obj.A);
             Assert.AreEqual(8675309m, obj.B);
         }
+
+        [TestMethod]
+        public void StandAloneTake()
+        {
+            var parser = FStringParser.Take<DecimalObject>("|", typeof(DecimalObject).GetProperty("A")).Seal();
+
+            var obj = new DecimalObject();
+
+            parser("123|", obj);
+
+            Assert.AreEqual(123m, obj.A);
+        }
+
+        [TestMethod]
+        public void StandAloneTakeN()
+        {
+            var parser = FStringParser.Take<DecimalObject>(4, typeof(DecimalObject).GetProperty("A")).Seal();
+
+            var obj = new DecimalObject();
+
+            parser("12345678", obj);
+
+            Assert.AreEqual(1234m, obj.A);
+        }
     }
 }

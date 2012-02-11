@@ -415,5 +415,88 @@ namespace FluentStringParser
                 il.MarkLabel(finished);
             }
         }
+
+        class FTakeN<T> : FStringTemplate<T> where T : class
+        {
+            internal override int NeededStringScratchSpace
+            {
+                get { return 0; }
+            }
+
+            internal int N { get; set; }
+            internal MemberInfo Into { get; set; }
+            internal string DateFormat { get; set; }
+
+            internal override void Emit(ILGenerator il)
+            {
+                var finished = il.DefineLabel();
+                var failure = il.DefineLabel();
+
+                il.LoadAccumulator();           // accumulator
+                il.Emit(OpCodes.Ldc_I4, N);     // N accumulator
+                il.Emit(OpCodes.Add);           // <accumulator+N>
+                il.LoadToParseLength();         // toParse.Length <accumulator+N>
+                il.Emit(OpCodes.Bge, failure);  // --empty--
+
+                var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
+
+                il.LoadToParse();                 // <char[]* toParse>
+                il.LoadAccumulator();             // accumulator <char[]* toParse>
+                il.LoadParseBuffer();             // <char[]* parseBuffer> acccumulator <char[]* toParse>
+                il.Emit(OpCodes.Ldc_I4_0);        // 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
+                il.Emit(OpCodes.Ldc_I4, N);       // N 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
+                il.Emit(OpCodes.Call, copyArray); // --empty--
+
+                il.LoadObjectBeingBuild();        // *built
+                il.LoadParseBuffer();             // <char[]* parseBuffer> *built
+                il.Emit(OpCodes.Ldc_I4, N);   // N <char[]* parseBuffer> *built
+                il.ParseAndSet(Into, DateFormat); // --empty--
+                il.Emit(OpCodes.Br, finished);
+
+                // branch here if bounds checking fails
+                il.MarkLabel(failure);          // --empty--
+                il.CallFailureAndReturn<T>(0);
+
+                // branch here when we're ready to continue with parsing
+                il.MarkLabel(finished);
+            }
+
+            public override Action<string, T> Seal()
+            {
+                var name = "fstringtaken" + Guid.NewGuid();
+                var method = new DynamicMethod(name, typeof(void), new[] { typeof(string), typeof(T), typeof(Action<string, T>) }, true);
+
+                var il = method.GetILGenerator();
+
+                il.Initialize(NeededStringScratchSpace);
+
+                // Put the whole thing in a try/catch
+                il.BeginExceptionBlock();
+
+                Emit(il);
+
+                // Being the catch block for the method wide try/catch
+                il.BeginCatchBlock(typeof(Exception));                          // exception
+                var skipFailure = il.DefineLabel();
+
+                // Don't re-run the failure callback,
+                il.Emit(OpCodes.Isinst, typeof(ILHelpers.ControlException));    // bool
+                il.Emit(OpCodes.Brtrue_S, skipFailure);                         // --empty--
+
+                il.CallFailureAndReturn<T>(0, dontReturn: true);                // --empty--
+
+                il.MarkLabel(skipFailure);
+
+                il.EndExceptionBlock();
+
+                il.Emit(OpCodes.Ret);
+
+                var inner = (Action<string, T, Action<string, T>>)method.CreateDelegate(typeof(Action<string, T, Action<string, T>>));
+
+                Action<string, T> ret = (str, t) => inner(str, t, (a, b) => { });
+
+                return ret;
+            }
+        }
     }
 }

@@ -175,5 +175,31 @@ namespace FluentStringParser
         {
             return template.Append(Back<T>(n));
         }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(int n, MemberInfo into, string dateFormat = null) where T : class
+        {
+            if (n <= 0) throw new ArgumentException("Take expects a positive, non-zero value; found [" + n + "]");
+
+            ValidateMember<T>(into, dateFormat);
+
+            return new FTakeN<T> { N = n, Into = into, DateFormat = dateFormat };
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, MemberInfo into, string dateFormat = null) where T : class
+        {
+            return template.Append(Take<T>(n, into, dateFormat));
+        }
     }
 }
