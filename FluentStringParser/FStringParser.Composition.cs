@@ -60,9 +60,9 @@ namespace FluentStringParser
                 if (member is PropertyInfo) t = ((PropertyInfo)member).PropertyType;
                 if (member is FieldInfo) t = ((FieldInfo)member).FieldType;
 
-                if (!(t == typeof(DateTime) || t == typeof(DateTime?)))
+                if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?)))
                 {
-                    throw new InvalidOperationException(member.Name + " is not a DateTime, and cannot have a format specified");
+                    throw new InvalidOperationException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
                 }
             }
         }

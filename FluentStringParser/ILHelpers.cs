@@ -334,6 +334,40 @@ namespace FluentStringParser
         /// 
         /// results in stack of
         ///   - value
+        /// where value will be a TimeSpan
+        ///   
+        /// The emitted code may trash the scratch numbers
+        /// </summary>
+        private static void ParseTime(ILGenerator il, string timeSpanFormat)
+        {
+            var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
+
+            // Stack: len 0 *char[]
+            il.Emit(OpCodes.Newobj, strConst);  // *string
+
+            if (string.IsNullOrEmpty(timeSpanFormat))
+            {
+                var parse = typeof(TimeSpan).GetMethod("Parse", new[] { typeof(string) });
+                il.Emit(OpCodes.Call, parse);   // value
+                return;
+            }
+
+            var invariantCulture = typeof(CultureInfo).GetProperty("InvariantCulture").GetGetMethod();
+            var parseFormat = typeof(TimeSpan).GetMethod("ParseExact", new[] { typeof(string), typeof(string), typeof(IFormatProvider) });
+
+            il.Emit(OpCodes.Ldstr, timeSpanFormat);     // *string *string
+            il.Emit(OpCodes.Call, invariantCulture);    // *IFormatProvider *string *string
+            il.Emit(OpCodes.Call, parseFormat);         // value
+        }
+
+        /// <summary>
+        /// Stack is expected to be
+        ///   - len 0 *char[]
+        ///   
+        /// for easy coercion into a string if needed
+        /// 
+        /// results in stack of
+        ///   - value
         /// where value will be a DateTime
         ///   
         /// The emitted code may trash the scratch numbers
@@ -492,7 +526,7 @@ namespace FluentStringParser
         ///   
         /// The emitted code may trash the scratch int
         /// </summary>
-        private static void ParseImpl(ILGenerator il, Type type, string dateFormat)
+        private static void ParseImpl(ILGenerator il, Type type, string format)
         {
             var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
 
@@ -512,7 +546,13 @@ namespace FluentStringParser
 
             if (type == typeof(DateTime) || type == typeof(DateTime?))
             {
-                ParseDate(il, dateFormat);  // value
+                ParseDate(il, format);  // value
+                return;
+            }
+
+            if (type == typeof(TimeSpan) || type == typeof(TimeSpan?))
+            {
+                ParseTime(il, format);
                 return;
             }
 

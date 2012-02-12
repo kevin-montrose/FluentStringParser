@@ -355,5 +355,34 @@ namespace FluentStringParserTests
 
             Assert.AreEqual(1234m, obj.A);
         }
+
+        class TimeSpanObject
+        {
+            public TimeSpan A { get; set; }
+            public TimeSpan? B;
+        }
+
+        [TestMethod]
+        public void TimeSpan()
+        {
+            var simple = FStringParser.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A")).TakeRest(typeof(TimeSpanObject).GetField("B")).Seal();
+
+            var span1 = System.TimeSpan.FromDays(1);
+            var span2 = System.TimeSpan.FromMilliseconds((new Random()).Next(1000000));
+
+            var obj = new TimeSpanObject();
+
+            simple(span1 + "|" + span2, obj);
+
+            Assert.AreEqual(span1, obj.A);
+            Assert.AreEqual(span2, obj.B.Value);
+
+            var complex = FStringParser.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A"), format: "G").TakeRest(typeof(TimeSpanObject).GetField("B"), format: "g").Seal();
+
+            complex(span2.ToString("G") + "|" + span1.ToString("g"), obj);
+
+            Assert.AreEqual(span2, obj.A);
+            Assert.AreEqual(span1, obj.B.Value);
+        }
     }
 }
