@@ -18,8 +18,9 @@ you can chain calls to build more interesting parsers
     .Take(";", _MyObjectProp)
 
 Parsers can only set fields and properties on reference types,
-and only primitive number types, DateTimes, and strings can
-be parsed at this time.
+and only primitive number types, DateTimes, TimeSpans, and strings
+can be parsed at this time.  DateTimes and TimeSpans can have
+custom format strings specified for parsing them.
 
 Else and TakeRest are available only as the second or later
 directives in a parser.  Only one of each may appear in a 
