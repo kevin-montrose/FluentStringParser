@@ -15,7 +15,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Till<T>(string needle) where T : class
+        public static FStringTemplate<T> Until<T>(string needle) where T : class
         {
             return new FSkipUntil<T> { Until = needle };
         }
@@ -27,9 +27,9 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Till<T>(this FStringTemplate<T> template, string needle) where T : class
+        public static FStringTemplate<T> Until<T>(this FStringTemplate<T> template, string needle) where T : class
         {
-            return template.Append(Till<T>(needle));
+            return template.Append(Until<T>(needle));
         }
 
         private static void ValidateMember<T>(MemberInfo member, string dateFormat)
