@@ -32,7 +32,7 @@ namespace FluentStringParser
             return template.Append(Until<T>(needle));
         }
 
-        private static void ValidateMember<T>(MemberInfo member, string dateFormat)
+        private static void ValidateMember<T>(MemberInfo member, string format)
         {
             if (member.DeclaringType != typeof(T))
             {
@@ -54,7 +54,7 @@ namespace FluentStringParser
                 }
             }
 
-            if (!string.IsNullOrEmpty(dateFormat))
+            if (!string.IsNullOrEmpty(format))
             {
                 Type t = null;
                 if (member is PropertyInfo) t = ((PropertyInfo)member).PropertyType;
@@ -62,7 +62,7 @@ namespace FluentStringParser
 
                 if (!(t == typeof(DateTime) || t == typeof(DateTime?)))
                 {
-                    throw new InvalidOperationException(member.Name + " is not a DateTime, and cannot have a dateFormat specified");
+                    throw new InvalidOperationException(member.Name + " is not a DateTime, and cannot have a format specified");
                 }
             }
         }
@@ -78,11 +78,11 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="until"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(string until, MemberInfo member, string dateFormat = null) where T : class
+        public static FStringTemplate<T> Take<T>(string until, MemberInfo member, string format = null) where T : class
         {
-            ValidateMember<T>(member, dateFormat);
+            ValidateMember<T>(member, format);
 
-            return new FTakeUntil<T> { Until = until, Into = member, DateFormat = dateFormat };
+            return new FTakeUntil<T> { Until = until, Into = member, Format = format };
         }
 
         /// <summary>
@@ -95,9 +95,9 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, MemberInfo member, string dateFormat = null) where T : class
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, MemberInfo member, string format = null) where T : class
         {
-            return template.Append(Take<T>(until, member, dateFormat));
+            return template.Append(Take<T>(until, member, format));
         }
 
         /// <summary>
@@ -121,11 +121,11 @@ namespace FluentStringParser
         /// 
         /// Nothing can follow a TakeRest directive except an Else.
         /// </summary>
-        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, MemberInfo member, string dateFormat = null) where T : class
+        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, MemberInfo member, string format = null) where T : class
         {
-            ValidateMember<T>(member, dateFormat);
+            ValidateMember<T>(member, format);
 
-            return template.Append(new FTakeRest<T> { Into = member, DateFormat = dateFormat });
+            return template.Append(new FTakeRest<T> { Into = member, Format = format });
         }
 
         /// <summary>
@@ -182,13 +182,13 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(int n, MemberInfo into, string dateFormat = null) where T : class
+        public static FStringTemplate<T> Take<T>(int n, MemberInfo into, string format = null) where T : class
         {
             if (n <= 0) throw new ArgumentException("Take expects a positive, non-zero value; found [" + n + "]");
 
-            ValidateMember<T>(into, dateFormat);
+            ValidateMember<T>(into, format);
 
-            return new FTakeN<T> { N = n, Into = into, DateFormat = dateFormat };
+            return new FTakeN<T> { N = n, Into = into, Format = format };
         }
 
         /// <summary>
@@ -197,9 +197,9 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, MemberInfo into, string dateFormat = null) where T : class
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, MemberInfo into, string format = null) where T : class
         {
-            return template.Append(Take<T>(n, into, dateFormat));
+            return template.Append(Take<T>(n, into, format));
         }
     }
 }

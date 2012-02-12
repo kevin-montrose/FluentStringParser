@@ -228,7 +228,7 @@ namespace FluentStringParser
 
             internal string Until { get; set; }
             internal MemberInfo Into { get; set; }
-            internal string DateFormat { get; set; }
+            internal string Format { get; set; }
 
             internal override void Emit(ILGenerator il)
             {
@@ -291,7 +291,7 @@ namespace FluentStringParser
                 il.Emit(OpCodes.Call, copyArray);       // *built
                 il.LoadParseBuffer();                   // <*char[] toParse> *built
                 il.LoadScratchInt();                    // length <*char[] toParse> *built
-                il.ParseAndSet(Into, DateFormat);
+                il.ParseAndSet(Into, Format);
             }
 
             internal override Action<string, T> GetOnFailure()
@@ -309,7 +309,7 @@ namespace FluentStringParser
 
             internal MemberInfo Into { get; set; }
 
-            internal string DateFormat { get; set; }
+            internal string Format { get; set; }
 
             internal override FStringTemplate<T> Append(FStringTemplate<T> template)
             {
@@ -337,7 +337,7 @@ namespace FluentStringParser
                 il.Emit(OpCodes.Call, copyArray);   // *built
                 il.LoadParseBuffer();               // *char[] *built
                 il.LoadScratchInt();                // length *char[] *built
-                il.ParseAndSet(Into, DateFormat);
+                il.ParseAndSet(Into, Format);
             }
         }
 
@@ -404,7 +404,7 @@ namespace FluentStringParser
 
             internal int N { get; set; }
             internal MemberInfo Into { get; set; }
-            internal string DateFormat { get; set; }
+            internal string Format { get; set; }
 
             internal override void Emit(ILGenerator il)
             {
@@ -428,8 +428,8 @@ namespace FluentStringParser
 
                 il.LoadObjectBeingBuild();        // *built
                 il.LoadParseBuffer();             // <char[]* parseBuffer> *built
-                il.Emit(OpCodes.Ldc_I4, N);   // N <char[]* parseBuffer> *built
-                il.ParseAndSet(Into, DateFormat); // --empty--
+                il.Emit(OpCodes.Ldc_I4, N);       // N <char[]* parseBuffer> *built
+                il.ParseAndSet(Into, Format);     // --empty--
                 il.Emit(OpCodes.Br, finished);
 
                 // branch here if bounds checking fails

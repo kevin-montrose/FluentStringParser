@@ -118,7 +118,7 @@ namespace FluentStringParserTests
                 .Until<LogRow>(" ")
                 .Take(":", LogProp("ClientIp"))
                 .Until("[")
-                .Take("]", LogProp("CreationDate"), dateFormat: "dd/MMM/yyyy:HH:mm:ss.fff")
+                .Take("]", LogProp("CreationDate"), format: "dd/MMM/yyyy:HH:mm:ss.fff")
                 .Until(" ")
                 .Take(" ", LogProp("FrontEnd"))
                 .Take("/", LogProp("BackEnd"))
