@@ -8,6 +8,56 @@ namespace FluentStringParser
 {
     public static partial class FStringParser
     {
+        private static void ValidateMember<T>(MemberInfo member, string format)
+        {
+            if (member.DeclaringType != typeof(T))
+            {
+                throw new ArgumentException(member.Name + " must be on " + typeof(T).Name);
+            }
+
+            if (!(member is FieldInfo || member is PropertyInfo))
+            {
+                throw new ArgumentException(member.Name + " must be a field or property, found " + member);
+            }
+
+            if (member is PropertyInfo)
+            {
+                var asProp = (PropertyInfo)member;
+
+                if (!asProp.CanWrite)
+                {
+                    throw new ArgumentException(member.Name + " is an unsettable property");
+                }
+
+                if (asProp.GetSetMethod().IsStatic)
+                {
+                    throw new ArgumentException(member.Name + " is static, must be an instance property");
+                }
+            }
+
+            if (member is FieldInfo)
+            {
+                var asField = (FieldInfo)member;
+
+                if (asField.IsStatic)
+                {
+                    throw new ArgumentException(member.Name + " is static, must be an instance field");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(format))
+            {
+                Type t = null;
+                if (member is PropertyInfo) t = ((PropertyInfo)member).PropertyType;
+                if (member is FieldInfo) t = ((FieldInfo)member).FieldType;
+
+                if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?)))
+                {
+                    throw new InvalidOperationException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
+                }
+            }
+        }
+
         /// <summary>
         /// Advance in the string until <paramref name="needle"/> is encountered.
         /// 
@@ -32,41 +82,30 @@ namespace FluentStringParser
             return template.Append(Until<T>(needle));
         }
 
-        private static void ValidateMember<T>(MemberInfo member, string format)
+        private static MemberInfo FindMember<T>(string member)
         {
-            if (member.DeclaringType != typeof(T))
-            {
-                throw new InvalidOperationException(member.Name + " must be on " + typeof(T).Name);
-            }
+            var members = typeof(T).GetMember(member).Where(w => w is PropertyInfo || w is FieldInfo).ToList();
 
-            if (!(member is FieldInfo || member is PropertyInfo))
-            {
-                throw new InvalidOperationException(member.Name + " must be a field or property, found " + member);
-            }
+            if (members.Count == 0) throw new ArgumentException("[" + member + "] field or property does not exist on " + typeof(T).Name);
+            if (members.Count > 1) throw new ArgumentException("[" + member + "] is ambiguous on " + typeof(T).Name);
 
-            if (member is PropertyInfo)
-            {
-                var asProp = (PropertyInfo)member;
-
-                if (!asProp.CanWrite)
-                {
-                    throw new InvalidOperationException(member.Name + " is an unsettable property");
-                }
-            }
-
-            if (!string.IsNullOrEmpty(format))
-            {
-                Type t = null;
-                if (member is PropertyInfo) t = ((PropertyInfo)member).PropertyType;
-                if (member is FieldInfo) t = ((FieldInfo)member).FieldType;
-
-                if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?)))
-                {
-                    throw new InvalidOperationException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
-                }
-            }
+            return members.Single();
         }
 
+        /// <summary>
+        /// Takes characters from the input string, and puts them in the property
+        /// or field referenced by <paramref name="member"/> until <paramref name="until"/> is encountered.
+        /// 
+        /// <paramref name="until"/> is not placed in <paramref name="member"/>.
+        /// 
+        /// Subsequent directives begin after <paramref name="until"/>
+        /// 
+        /// If <paramref name="until"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(string until, string member, string format = null) where T : class
+        {
+            return Take<T>(until, FindMember<T>(member), format);
+        }
 
         /// <summary>
         /// Takes characters from the input string, and puts them in the property
@@ -95,6 +134,21 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, string member, string format = null) where T : class
+        {
+            return Take<T>(template, until, FindMember<T>(member), format);
+        }
+
+        /// <summary>
+        /// Takes characters from the input string, and puts them in the property
+        /// or field referenced by <paramref name="member"/> until <paramref name="needle"/> is encountered.
+        /// 
+        /// <paramref name="needle"/> is not placed in <paramref name="member"/>.
+        /// 
+        /// Subsequent directives begin after <paramref name="needle"/>
+        /// 
+        /// If <paramref name="needle"/> is not found, any Else directive is run.
+        /// </summary>
         public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, MemberInfo member, string format = null) where T : class
         {
             return template.Append(Take<T>(until, member, format));
@@ -111,6 +165,19 @@ namespace FluentStringParser
         public static FStringTemplate<T> Else<T>(this FStringTemplate<T> template, Action<string, T> call) where T : class
         {
             return template.Append(new FElse<T> { Call = call });
+        }
+
+        /// <summary>
+        /// Every directive can have a single TakeRest directive.
+        /// 
+        /// This takes the remainder of the input string, and places it into the field
+        /// or property specified by <paramref name="member"/>.
+        /// 
+        /// Nothing can follow a TakeRest directive except an Else.
+        /// </summary>
+        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, string member, string format = null) where T : class
+        {
+            return TakeRest<T>(template, FindMember<T>(member), format);
         }
 
         /// <summary>
@@ -182,6 +249,17 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
+        public static FStringTemplate<T> Take<T>(int n, string into, string format = null) where T : class
+        {
+            return Take<T>(n, FindMember<T>(into), format);
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
         public static FStringTemplate<T> Take<T>(int n, MemberInfo into, string format = null) where T : class
         {
             if (n <= 0) throw new ArgumentException("Take expects a positive, non-zero value; found [" + n + "]");
@@ -189,6 +267,17 @@ namespace FluentStringParser
             ValidateMember<T>(into, format);
 
             return new FTakeN<T> { N = n, Into = into, Format = format };
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, string into, string format = null) where T : class
+        {
+            return Take<T>(template, n, FindMember<T>(into), format);
         }
 
         /// <summary>
