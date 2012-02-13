@@ -8,6 +8,23 @@ namespace FluentStringParser
 {
     public static partial class FStringParser
     {
+        private static void KnownTypeCheck(string name, Type t)
+        {
+            // strip the nullable bits off
+            t = Nullable.GetUnderlyingType(t) ?? t;
+
+            var known = 
+                new[]
+                { 
+                    typeof(sbyte), typeof(byte), typeof(short), typeof(ushort),
+                    typeof(int), typeof(uint), typeof(long), typeof(ulong),
+                    typeof(float), typeof(double), typeof(decimal), typeof(bool),
+                    typeof(DateTime), typeof(TimeSpan), typeof(string)
+                }.Contains(t);
+
+            if (!known) throw new ArgumentException(name + " is not a supported type");
+        }
+
         private static void ValidateMember<T>(MemberInfo member, string format)
         {
             if (member.DeclaringType != typeof(T))
@@ -33,6 +50,8 @@ namespace FluentStringParser
                 {
                     throw new ArgumentException(member.Name + " is static, must be an instance property");
                 }
+
+                KnownTypeCheck(member.Name, asProp.PropertyType);
             }
 
             if (member is FieldInfo)
@@ -43,6 +62,8 @@ namespace FluentStringParser
                 {
                     throw new ArgumentException(member.Name + " is static, must be an instance field");
                 }
+
+                KnownTypeCheck(member.Name, asField.FieldType);
             }
 
             if (!string.IsNullOrEmpty(format))
@@ -53,7 +74,7 @@ namespace FluentStringParser
 
                 if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?)))
                 {
-                    throw new InvalidOperationException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
+                    throw new ArgumentException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
                 }
             }
         }
@@ -86,8 +107,8 @@ namespace FluentStringParser
         {
             var members = typeof(T).GetMember(member).Where(w => w is PropertyInfo || w is FieldInfo).ToList();
 
-            if (members.Count == 0) throw new ArgumentException("[" + member + "] field or property does not exist on " + typeof(T).Name);
-            if (members.Count > 1) throw new ArgumentException("[" + member + "] is ambiguous on " + typeof(T).Name);
+            if (members.Count == 0) throw new ArgumentException(member + " field or property does not exist on " + typeof(T).Name);
+            if (members.Count > 1) throw new ArgumentException(member + " is ambiguous on " + typeof(T).Name);
 
             return members.Single();
         }
