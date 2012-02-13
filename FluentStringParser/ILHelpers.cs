@@ -199,8 +199,6 @@ namespace FluentStringParser
 
         private static MethodInfo ParseMethodFor(Type t)
         {
-            if (t == typeof(string)) return null;
-
             if (t == typeof(double) || t == typeof(double?))
             {
                 return typeof(double).GetMethod("Parse", new[] { typeof(string) });
@@ -537,7 +535,6 @@ namespace FluentStringParser
                 return;
             }
 
-            // the bools
             if (type == typeof(bool) || type == typeof(bool?))
             {
                 ParseBool(il);  // value
