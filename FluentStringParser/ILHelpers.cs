@@ -509,6 +509,95 @@ namespace FluentStringParser
         }
 
         /// <summary>
+        /// Stack is expected to be
+        ///   - len 0 *char[]
+        ///   
+        /// for easy coercion into a string if needed
+        /// 
+        /// results in stack of
+        ///   - value
+        /// where value will be an in64
+        /// 
+        /// The emitted code may trash the scratch numbers
+        /// </summary>
+        private static void ParseEnum(ILGenerator il, Type enumType)
+        {
+            var underlying = Enum.GetUnderlyingType(enumType);
+
+            var notNumber1 = il.DefineLabel();
+            var notNumber0 = il.DefineLabel();
+            var isNumber = il.DefineLabel();
+            var isNumberLoop = il.DefineLabel();
+            var finished = il.DefineLabel();
+
+            // Stack Starts: len 0 *char[]
+
+            // First, check to see if this is a number that needs to be coerced
+            il.Emit(OpCodes.Dup);       // len len 0 *char[]
+            il.StoreScratchInt();       // len 0 *char[]
+            il.Emit(OpCodes.Pop);       // 0 *char[]
+            il.Emit(OpCodes.Pop);       // *char[]
+            il.Emit(OpCodes.Dup);       // *char[] *char[]
+            il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] *char[]
+            il.StoreScratchInt2();      // *char[] *char[]
+            
+            il.MarkLabel(isNumberLoop);             // *char[] *char[]
+            il.LoadScratchInt2();                   // i *char[] *char[]
+            il.Emit(OpCodes.Ldelem, typeof(char));  // char *char[]
+            il.Emit(OpCodes.Dup);                   // char char *char[]
+            il.Emit(OpCodes.Ldc_I4, '9');           // '9' char char *char[]
+            il.Emit(OpCodes.Bgt, notNumber1);       // char *char[]
+            il.Emit(OpCodes.Ldc_I4, '0');           // '0' char *char[]
+            il.Emit(OpCodes.Blt, notNumber0);       // *char[]
+
+            il.LoadScratchInt2();                   // i *char[]
+            il.Emit(OpCodes.Ldc_I4_1);              // 1 i *char[]
+            il.Emit(OpCodes.Add);                   // <i+1> *char[]
+            il.Emit(OpCodes.Dup);                   // <i+1> <i+1> *char[]
+            il.LoadScratchInt();                    // len <i+1> <i+1> *char[]
+            il.Emit(OpCodes.Beq_S, isNumber);       // <i+1> *char[]
+            il.StoreScratchInt2();                  // *char[]
+            il.Emit(OpCodes.Dup);                   // *char[] *char[]
+            il.Emit(OpCodes.Br_S, isNumberLoop);    // *char[] *char[]
+
+            // branch here when we've determine that we're parsing a number
+            il.MarkLabel(isNumber);     // len *char[]
+            il.Emit(OpCodes.Pop);       // *char[]
+            il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[]
+            il.LoadScratchInt();        // len 0 *char[]
+            ParseLong(il);              // <long value>
+
+            if (underlying == typeof(byte) || underlying == typeof(sbyte))
+            {
+                il.Emit(OpCodes.Conv_Ovf_I1);  // <byte value>
+            }
+
+            if(underlying == typeof(short) || underlying == typeof(ushort))
+            {
+                il.Emit(OpCodes.Conv_Ovf_I2);  // <short value>
+            }
+
+            if (underlying == typeof(int) || underlying == typeof(uint))
+            {
+                il.Emit(OpCodes.Conv_Ovf_I4); // <int value>
+            }
+
+            il.Emit(OpCodes.Br, finished);
+
+            // Branch here if we determine we're not parsing a number
+            il.MarkLabel(notNumber1);   // char *char[]
+            il.Emit(OpCodes.Pop);       // *char[]
+            il.MarkLabel(notNumber0);   // *char[]
+
+            // TODO
+            il.Emit(OpCodes.Pop);
+            il.Emit(OpCodes.Ldc_I4_0);  // 0
+
+            // Branch here when we're done
+            il.MarkLabel(finished);     // value
+        }
+
+        /// <summary>
         /// Emit IL to convert what's on the stack into the desired value.
         /// 
         /// Note that this code doesn't deal with Nullable requirements,
@@ -528,6 +617,8 @@ namespace FluentStringParser
         {
             var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
 
+            type = Nullable.GetUnderlyingType(type) ?? type;
+
             // simple case first
             if (type == typeof(string))
             {
@@ -535,70 +626,75 @@ namespace FluentStringParser
                 return;
             }
 
-            if (type == typeof(bool) || type == typeof(bool?))
+            if (type == typeof(bool))
             {
                 ParseBool(il);  // value
                 return;
             }
 
-            if (type == typeof(DateTime) || type == typeof(DateTime?))
+            if (type == typeof(DateTime))
             {
                 ParseDate(il, format);  // value
                 return;
             }
 
-            if (type == typeof(TimeSpan) || type == typeof(TimeSpan?))
+            if (type == typeof(TimeSpan))
             {
                 ParseTime(il, format);
                 return;
             }
 
-            if (type == typeof(int) || type == typeof(int?))
+            if (type == typeof(int))
             {
                 ParseLong(il);                // <long value>
                 il.Emit(OpCodes.Conv_Ovf_I4); // value
                 return;
             }
 
-            if (type == typeof(uint) || type == typeof(uint?))
+            if (type == typeof(uint))
             {
                 ParseLong(il);                      // <long value>
                 il.Emit(OpCodes.Conv_Ovf_I4_Un);    // value
                 return;
             }
 
-            if (type == typeof(short) || type == typeof(short?))
+            if (type == typeof(short))
             {
                 ParseLong(il);              // <long value>
                 il.Emit(OpCodes.Conv_Ovf_I2);   // value
                 return;
             }
 
-            if (type == typeof(ushort) || type == typeof(ushort?))
+            if (type == typeof(ushort))
             {
                 ParseLong(il);                  // <long value>
                 il.Emit(OpCodes.Conv_Ovf_I2_Un);// value
                 return;
             }
 
-            if (type == typeof(byte) || type == typeof(byte?))
+            if (type == typeof(byte))
             {
                 ParseLong(il);                   // <long value>
                 il.Emit(OpCodes.Conv_Ovf_I1_Un); // value
                 return;
             }
 
-            if (type == typeof(sbyte) || type == typeof(sbyte?))
+            if (type == typeof(sbyte))
             {
                 ParseLong(il);                  // <long value>
                 il.Emit(OpCodes.Conv_Ovf_I1);   // value
                 return;
             }
 
-            if (type == typeof(long) || type == typeof(long?) ||
-                type == typeof(ulong) || type == typeof(ulong?))
+            if (type == typeof(long) || type == typeof(ulong))
             {
                 ParseLong(il);  // value
+                return;
+            }
+
+            if (type.IsEnum)
+            {
+                ParseEnum(il, type); // value;
                 return;
             }
 

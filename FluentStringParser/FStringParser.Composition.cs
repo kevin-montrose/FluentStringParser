@@ -13,7 +13,7 @@ namespace FluentStringParser
             // strip the nullable bits off
             t = Nullable.GetUnderlyingType(t) ?? t;
 
-            var known = 
+            var known =
                 new[]
                 { 
                     typeof(sbyte), typeof(byte), typeof(short), typeof(ushort),
@@ -22,7 +22,7 @@ namespace FluentStringParser
                     typeof(DateTime), typeof(TimeSpan), typeof(string)
                 }.Contains(t);
 
-            if (!known) throw new ArgumentException(name + " is not a supported type");
+            if (!known && !t.IsEnum) throw new ArgumentException(name + " is not a supported type");
         }
 
         private static void ValidateMember<T>(MemberInfo member, string format)

@@ -384,5 +384,23 @@ namespace FluentStringParserTests
             Assert.AreEqual(span2, obj.A);
             Assert.AreEqual(span1, obj.B.Value);
         }
+
+        class EnumObject
+        {
+            public enum Blah { None = 0, Foo = 1, Bar = 2 };
+            public Blah A { get; set; }
+        }
+
+        [TestMethod]
+        public void NumberAsEnum()
+        {
+            var simple = FStringParser.Take<EnumObject>("|", "A").Else((s, o) => { throw new InvalidOperationException(); }).Seal();
+
+            var obj = new EnumObject();
+
+            simple("2|", obj);
+
+            Assert.AreEqual(EnumObject.Blah.Bar, obj.A);
+        }
     }
 }
