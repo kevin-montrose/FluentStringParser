@@ -311,5 +311,44 @@ namespace FluentStringParser
         {
             return template.Append(Take<T>(n, into, format));
         }
+
+        /// <summary>
+        /// Concatenate one series of directives with another.
+        /// 
+        /// Will error if multiple TakeRest or Else directives
+        /// are defined by the union of the two series.
+        /// </summary>
+        public static FStringTemplate<T> Append<T>(this FStringTemplate<T> left, FStringTemplate<T> right) where T : class
+        {
+            var ret = (Combo<T>)left.Append(right);
+
+            if (ret.Templates.OfType<FTakeRest<T>>().Count() > 1)
+            {
+                throw new ArgumentException("Too many TakeRest directives");
+            }
+
+            if (ret.Templates.OfType<FTakeRest<T>>().Count() == 1)
+            {
+                if (!(ret.Templates.Where(w => !(w is FElse<T>)).Last() is FTakeRest<T>))
+                {
+                    throw new ArgumentException("TakeRest directive was not the last directive before an Else in the resulting series");
+                }
+            }
+
+            if (ret.Templates.OfType<FElse<T>>().Count() > 1)
+            {
+                throw new ArgumentException("Too many Else directives");
+            }
+
+            if (ret.Templates.OfType<FElse<T>>().Count() == 1)
+            {
+                if (!(ret.Templates.Last() is FElse<T>))
+                {
+                    throw new ArgumentException("Else directive was not the last directive in the resulting series");
+                }
+            }
+
+            return ret;
+        }
     }
 }

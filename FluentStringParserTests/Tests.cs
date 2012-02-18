@@ -113,7 +113,7 @@ namespace FluentStringParserTests
 
         static Tests()
         {
-            FTemplate =
+            var firstHalf = 
                 FStringParser
                 .Until<LogRow>(" ")
                 .Take(":", "ClientIp")
@@ -133,8 +133,11 @@ namespace FluentStringParserTests
                 .Until("- ")
                 .Until("- ")
                 .Take(4, "TermState")
-                .Until(" ")
-                .Take("/", LogProp("ActConn"))
+                .Until(" ");
+
+            var secondHalf = 
+                FStringParser
+                .Take<LogRow>("/", LogProp("ActConn"))
                 .Take("/", "FeConn")
                 .Take("/", LogProp("BeConn"))
                 .Take("/", "SrvConn")
@@ -156,7 +159,10 @@ namespace FluentStringParserTests
                 .Until("\"")
                 .Take(" ", "Method")
                 .Take(" ", LogProp("Uri"))
-                .Take("\"", "HttpVersion")
+                .Take("\"", "HttpVersion");
+
+            FTemplate =
+                firstHalf.Append(secondHalf)
                 .Else(
                     (str, row) => 
                     { 

@@ -217,11 +217,6 @@ namespace FluentStringParser
             return null;
         }
 
-        private static Type GetNullableEquivalentType(Type t)
-        {
-            return typeof(Nullable<>).MakeGenericType(t);
-        }
-
         private static void CheckCharacter(this ILGenerator il, int loc, char against, Label ifNot)
         {
             var fallThrough = il.DefineLabel();
