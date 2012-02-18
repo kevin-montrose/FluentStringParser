@@ -416,5 +416,68 @@ namespace FluentStringParserTests
             Assert.AreEqual(EnumObject.Blah.Foo, obj.A);
             Assert.AreEqual(EnumObject.Blah.Bar, obj.B);
         }
+
+        class ValueObject
+        {
+            public sbyte A;
+            public short B;
+            public int C;
+            public long D;
+        }
+
+        [TestMethod]
+        public void Overflows()
+        {
+            var parse =
+                FStringParser
+                    .Take<ValueObject>(",", "A")
+                    .Take(",", "B")
+                    .Take(",", "C")
+                    .TakeRest("D")
+                    .Else((s, o) => { throw new Exception(); })
+                    .Seal();
+
+            var obj = new ValueObject();
+
+            parse("1,2,3,4", obj);
+            Assert.AreEqual(1, obj.A);
+            Assert.AreEqual(2, obj.B);
+            Assert.AreEqual(3, obj.C);
+            Assert.AreEqual(4, obj.D);
+
+            try
+            {
+                parse(byte.MaxValue + ",1,2,3", obj);
+                Assert.Fail("byte should be exceeded");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                parse("1,"+ushort.MaxValue + ",2,3", obj);
+                Assert.Fail("short should be exceeded");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                parse("1,2," + uint.MaxValue + ",3", obj);
+                Assert.Fail("int should be exceeded");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                parse("1,2,3," + ulong.MaxValue, obj);
+                Assert.Fail("long should be exceeded");
+            }
+            catch (Exception) { }
+
+            parse(sbyte.MaxValue + "," + short.MaxValue + "," + int.MaxValue + "," + long.MaxValue, obj);
+            Assert.AreEqual(sbyte.MaxValue, obj.A);
+            Assert.AreEqual(short.MaxValue, obj.B);
+            Assert.AreEqual(int.MaxValue, obj.C);
+            Assert.AreEqual(long.MaxValue, obj.D);
+        }
     }
 }

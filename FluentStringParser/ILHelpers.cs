@@ -199,22 +199,22 @@ namespace FluentStringParser
 
         private static MethodInfo ParseMethodFor(Type t)
         {
-            if (t == typeof(double) || t == typeof(double?))
+            if (t == typeof(double))
             {
                 return typeof(double).GetMethod("Parse", new[] { typeof(string) });
             }
 
-            if (t == typeof(float) || t == typeof(float?))
+            if (t == typeof(float))
             {
                 return typeof(float).GetMethod("Parse", new[] { typeof(string) });
             }
 
-            if (t == typeof(decimal) || t == typeof(decimal?))
+            if (t == typeof(decimal))
             {
                 return typeof(decimal).GetMethod("Parse", new[] { typeof(string) });
             }
 
-            throw new NotImplementedException("No parser for " + t.Name + " defined");
+            return null;
         }
 
         private static Type GetNullableEquivalentType(Type t)
@@ -508,6 +508,64 @@ namespace FluentStringParser
             il.MarkLabel(finished);
         }
 
+        /// <summary>
+        /// Stack Starts
+        ///   - long
+        /// 
+        /// Stack ends
+        ///   - (type)long
+        ///   
+        /// throws on overflow
+        /// </summary>
+        public static void ConvertToFromLong(this ILGenerator il, Type type)
+        {
+            if (type == typeof(sbyte))
+            {
+                il.Emit(OpCodes.Conv_Ovf_I1);
+                return;
+            }
+
+            if (type == typeof(byte))
+            {
+                il.Emit(OpCodes.Conv_Ovf_U1);
+                return;
+            }
+
+            if (type == typeof(short))
+            {
+                il.Emit(OpCodes.Conv_Ovf_I2);
+                return;
+            }
+
+            if (type == typeof(ushort))
+            {
+                il.Emit(OpCodes.Conv_Ovf_U2);
+                return;
+            }
+
+            if (type == typeof(int))
+            {
+                il.Emit(OpCodes.Conv_Ovf_I4);
+                return;
+            }
+
+            if (type == typeof(uint))
+            {
+                il.Emit(OpCodes.Conv_Ovf_U4);
+                return;
+            }
+
+            if (type != typeof(long) && type != typeof(ulong))
+            {
+                throw new InvalidOperationException("Unexpected type to coerce from long, " + type.Name);
+            }
+        }
+
+        /// <summary>
+        /// Parse an enumeration from a string,
+        /// we've already decided to pay for a method call; so I
+        /// see no harm making it two.
+        /// </summary>
         private static T _ParseEnum<T>(string val) where T : struct
         {
             return (T)Enum.Parse(typeof(T), val, ignoreCase: true);
@@ -516,7 +574,7 @@ namespace FluentStringParser
         /// <summary>
         /// Stack is expected to be
         ///   - len 0 *char[]
-        ///   
+        /// 
         /// for easy coercion into a string if needed
         /// 
         /// results in stack of
@@ -575,22 +633,8 @@ namespace FluentStringParser
             il.LoadScratchInt();        // len 0 *char[]
             ParseLong(il);              // <long value>
 
-            if (underlying == typeof(byte) || underlying == typeof(sbyte))
-            {
-                il.Emit(OpCodes.Conv_Ovf_I1);  // <byte value>
-            }
-
-            if(underlying == typeof(short) || underlying == typeof(ushort))
-            {
-                il.Emit(OpCodes.Conv_Ovf_I2);  // <short value>
-            }
-
-            if (underlying == typeof(int) || underlying == typeof(uint))
-            {
-                il.Emit(OpCodes.Conv_Ovf_I4); // <int value>
-            }
-
-            il.Emit(OpCodes.Br, finished);
+            il.ConvertToFromLong(underlying); // value
+            il.Emit(OpCodes.Br, finished);    // value
 
             // Branch here if we determine we're not parsing a number
             il.MarkLabel(notNumber1);   // char *char[]
@@ -653,54 +697,6 @@ namespace FluentStringParser
                 return;
             }
 
-            if (type == typeof(int))
-            {
-                ParseLong(il);                // <long value>
-                il.Emit(OpCodes.Conv_Ovf_I4); // value
-                return;
-            }
-
-            if (type == typeof(uint))
-            {
-                ParseLong(il);                      // <long value>
-                il.Emit(OpCodes.Conv_Ovf_I4_Un);    // value
-                return;
-            }
-
-            if (type == typeof(short))
-            {
-                ParseLong(il);              // <long value>
-                il.Emit(OpCodes.Conv_Ovf_I2);   // value
-                return;
-            }
-
-            if (type == typeof(ushort))
-            {
-                ParseLong(il);                  // <long value>
-                il.Emit(OpCodes.Conv_Ovf_I2_Un);// value
-                return;
-            }
-
-            if (type == typeof(byte))
-            {
-                ParseLong(il);                   // <long value>
-                il.Emit(OpCodes.Conv_Ovf_I1_Un); // value
-                return;
-            }
-
-            if (type == typeof(sbyte))
-            {
-                ParseLong(il);                  // <long value>
-                il.Emit(OpCodes.Conv_Ovf_I1);   // value
-                return;
-            }
-
-            if (type == typeof(long) || type == typeof(ulong))
-            {
-                ParseLong(il);  // value
-                return;
-            }
-
             if (type.IsEnum)
             {
                 ParseEnum(il, type); // value;
@@ -708,8 +704,16 @@ namespace FluentStringParser
             }
 
             var parseMethodCall = ParseMethodFor(type);
-            il.Emit(OpCodes.Newobj, strConst);      // *string
-            il.Emit(OpCodes.Call, parseMethodCall); // value
+            if (parseMethodCall != null)
+            {
+                il.Emit(OpCodes.Newobj, strConst);      // *string
+                il.Emit(OpCodes.Call, parseMethodCall); // value
+                return;
+            }
+
+            // All the number types get treated the same way
+            ParseLong(il);
+            il.ConvertToFromLong(type);
         }
 
         /// <summary>
