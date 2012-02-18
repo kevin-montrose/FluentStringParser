@@ -508,6 +508,11 @@ namespace FluentStringParser
             il.MarkLabel(finished);
         }
 
+        private static T _ParseEnum<T>(string val) where T : struct
+        {
+            return (T)Enum.Parse(typeof(T), val, ignoreCase: true);
+        }
+
         /// <summary>
         /// Stack is expected to be
         ///   - len 0 *char[]
@@ -523,6 +528,9 @@ namespace FluentStringParser
         private static void ParseEnum(ILGenerator il, Type enumType)
         {
             var underlying = Enum.GetUnderlyingType(enumType);
+            var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
+            var parseEnum = typeof(ILHelpers).GetMethod("_ParseEnum", BindingFlags.Static | BindingFlags.NonPublic);
+            parseEnum = parseEnum.MakeGenericMethod(enumType);
 
             var notNumber1 = il.DefineLabel();
             var notNumber0 = il.DefineLabel();
@@ -589,9 +597,10 @@ namespace FluentStringParser
             il.Emit(OpCodes.Pop);       // *char[]
             il.MarkLabel(notNumber0);   // *char[]
 
-            // TODO
-            il.Emit(OpCodes.Pop);
-            il.Emit(OpCodes.Ldc_I4_0);  // 0
+            il.Emit(OpCodes.Ldc_I4_0);          // 0 *char[]
+            il.LoadScratchInt();                // len 0 *char[]
+            il.Emit(OpCodes.Newobj, strConst);  // <toParse string>
+            il.Emit(OpCodes.Call, parseEnum);   // value
 
             // Branch here when we're done
             il.MarkLabel(finished);     // value

@@ -389,6 +389,7 @@ namespace FluentStringParserTests
         {
             public enum Blah { None = 0, Foo = 1, Bar = 2 };
             public Blah A { get; set; }
+            public Blah? B;
         }
 
         [TestMethod]
@@ -401,6 +402,19 @@ namespace FluentStringParserTests
             simple("2|", obj);
 
             Assert.AreEqual(EnumObject.Blah.Bar, obj.A);
+        }
+
+        [TestMethod]
+        public void NameAsEnum()
+        {
+            var simple = FStringParser.Take<EnumObject>("|", "A").TakeRest("B").Else((s, o) => { throw new InvalidOperationException(); }).Seal();
+
+            var obj = new EnumObject();
+
+            simple("Foo|bar", obj);
+
+            Assert.AreEqual(EnumObject.Blah.Foo, obj.A);
+            Assert.AreEqual(EnumObject.Blah.Bar, obj.B);
         }
     }
 }
