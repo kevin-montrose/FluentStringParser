@@ -46,10 +46,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FStringParser.Composition.cs">
-      <DependentUpon>FStringParser.cs</DependentUpon>
-    </Compile>
     <Compile Include="FStringParser.cs" />
+    <Compile Include="Directives.cs" />
     <Compile Include="ILHelpers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

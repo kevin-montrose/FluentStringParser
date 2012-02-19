@@ -3,454 +3,339 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Diagnostics.CodeAnalysis;
 
 namespace FluentStringParser
 {
-    public static partial class FStringParser
+    public static class FStringParser
     {
-        public abstract class FStringTemplate<T> where T : class
+        private static void KnownTypeCheck(string name, Type t)
         {
-            internal abstract int NeededStringScratchSpace { get; }
+            // strip the nullable bits off
+            t = Nullable.GetUnderlyingType(t) ?? t;
 
-            internal virtual FStringTemplate<T> Append(FStringTemplate<T> template)
+            var known =
+                new[]
+                { 
+                    typeof(sbyte), typeof(byte), typeof(short), typeof(ushort),
+                    typeof(int), typeof(uint), typeof(long), typeof(ulong),
+                    typeof(float), typeof(double), typeof(decimal), typeof(bool),
+                    typeof(DateTime), typeof(TimeSpan), typeof(string)
+                }.Contains(t);
+
+            if (!known && !t.IsEnum) throw new ArgumentException(name + " is not a supported type");
+        }
+
+        private static void ValidateMember<T>(MemberInfo member, string format)
+        {
+            if (member.DeclaringType != typeof(T))
             {
-                var copy = new List<FStringTemplate<T>>();
-                copy.Add(this);
-
-                var asCombo = template as Combo<T>;
-                if (asCombo != null)
-                {
-                    copy.AddRange(asCombo.Templates);
-                }
-                else
-                {
-                    copy.Add(template);
-                }
-
-                return new Combo<T> { Templates = copy };
+                throw new ArgumentException(member.Name + " must be on " + typeof(T).Name);
             }
 
-            /// <summary>
-            /// Emits code to execute the operation desired.
-            /// 
-            /// Stack starts empty.
-            /// 
-            /// The length of toParse is available as local 0.
-            /// toParse as a char[] is available as local 1
-            /// the accumulator is available as local 2
-            /// A parsing buffer char[] is available as local 3 of size toParse.Length
-            /// local 4 is a scratch int32
-            /// A scatch char[] is available as local 5, it is *at least* size NeededStringScratchSpace.
-            /// 
-            /// Argument 0 is the string (as a string) being parsed.
-            /// Argument 1 is the object being built.
-            /// Argument 2 is the "onFailure(string, T)" function.
-            /// 
-            /// If the operation cannot be completed (the string to find is not found, for instance)
-            /// then onFailure should be called and the function should return immediately.
-            /// 
-            /// Otherwise, execution should fall through with the stack empty, but accumulator should
-            /// have been updated to the current position in the string.
-            /// </summary>
-            internal abstract void Emit(ILGenerator il);
-
-            /// <summary>
-            /// Returns the "call this if things go wrong" delegate
-            /// to bake into the parser when Seal() is called
-            /// </summary>
-            [ExcludeFromCodeCoverage]
-            internal virtual Action<string, T> GetOnFailure()
+            if (!(member is FieldInfo || member is PropertyInfo))
             {
-                throw new NotImplementedException();
+                throw new ArgumentException(member.Name + " must be a field or property, found " + member);
             }
 
-            public Action<string, T> Seal()
+            if (member is PropertyInfo)
             {
-                var onFailure = GetOnFailure();
+                var asProp = (PropertyInfo)member;
 
-                var name = "fstring" + GetType().Name.ToLowerInvariant() + Guid.NewGuid();
-                var method = new DynamicMethod(name, typeof(void), new[] { typeof(string), typeof(T), typeof(Action<string, T>) }, true);
+                if (!asProp.CanWrite)
+                {
+                    throw new ArgumentException(member.Name + " is an unsettable property");
+                }
 
-                var il = method.GetILGenerator();
+                if (asProp.GetSetMethod().IsStatic)
+                {
+                    throw new ArgumentException(member.Name + " is static, must be an instance property");
+                }
 
-                il.Initialize(NeededStringScratchSpace);
+                KnownTypeCheck(member.Name, asProp.PropertyType);
+            }
 
-                // Put the whole thing in a try/catch
-                il.BeginExceptionBlock();
+            if (member is FieldInfo)
+            {
+                var asField = (FieldInfo)member;
 
-                Emit(il);
+                if (asField.IsStatic)
+                {
+                    throw new ArgumentException(member.Name + " is static, must be an instance field");
+                }
 
-                // Being the catch block for the method wide try/catch
-                il.BeginCatchBlock(typeof(Exception));                          // exception
-                var skipFailure = il.DefineLabel();
+                KnownTypeCheck(member.Name, asField.FieldType);
+            }
 
-                // Don't re-run the failure callback,
-                il.Emit(OpCodes.Isinst, typeof(ILHelpers.ControlException));    // bool
-                il.Emit(OpCodes.Brtrue_S, skipFailure);                         // --empty--
+            if (!string.IsNullOrEmpty(format))
+            {
+                Type t = null;
+                if (member is PropertyInfo) t = ((PropertyInfo)member).PropertyType;
+                if (member is FieldInfo) t = ((FieldInfo)member).FieldType;
 
-                il.CallFailureAndReturn<T>(0, dontReturn: true);                // --empty--
+                if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?)))
+                {
+                    throw new ArgumentException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
+                }
 
-                il.MarkLabel(skipFailure);
-
-                il.EndExceptionBlock();
-
-                il.Emit(OpCodes.Ret);
-
-                var inner = (Action<string, T, Action<string, T>>)method.CreateDelegate(typeof(Action<string, T, Action<string, T>>));
-
-                Action<string, T> ret = (str, t) => inner(str, t, onFailure);
-
-                return ret;
+                try
+                {
+                    if (t == typeof(DateTime) || t == typeof(DateTime?))
+                    {
+                        DateTime.UtcNow.ToString(format);
+                    }
+                    else
+                    {
+                        TimeSpan.FromSeconds(1).ToString(format);
+                    }
+                }
+                catch (FormatException f)
+                {
+                    throw new ArgumentException("format [" + format + "] is invalid, " + f.Message, f);
+                }
             }
         }
 
-        class Combo<T> : FStringTemplate<T> where T : class
+        /// <summary>
+        /// Advance in the string until <paramref name="needle"/> is encountered.
+        /// 
+        /// Subsequent directives begin after <paramref name="needle"/>.
+        /// 
+        /// If <paramref name="needle"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Until<T>(string needle) where T : class
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return Templates.Max(m => m.NeededStringScratchSpace); }
-            }
-
-            public List<FStringTemplate<T>> Templates { get; set; }
-
-            internal override void Emit(ILGenerator il)
-            {
-                foreach (var template in Templates.Where(e => !(e is FElse<T>)))
-                {
-                    template.Emit(il);
-                }
-            }
-
-            internal override Action<string, T> GetOnFailure()
-            {
-                var elses = Templates.OfType<FElse<T>>();
-
-                Action<string, T> onFailure;
-                if (elses.Count() == 1)
-                {
-                    onFailure = elses.Single().Call;
-                }
-                else
-                {
-                    onFailure = (a, b) => { };
-                }
-
-                return onFailure;
-            }
-
-            internal override FStringTemplate<T> Append(FStringTemplate<T> template)
-            {
-                if (Templates.Last() is FElse<T>)
-                {
-                    throw new InvalidOperationException("No operation can follow an Else");
-                }
-
-                if (Templates.Last() is FTakeRest<T> && !(template is FElse<T>))
-                {
-                    throw new InvalidOperationException("No operation other than Else can follow a TakeRest");
-                }
-
-                var copy = new List<FStringTemplate<T>>(Templates);
-
-                var asCombo = template as Combo<T>;
-                if (asCombo != null)
-                {
-                    copy.AddRange(asCombo.Templates);
-                }
-                else
-                {
-                    copy.Add(template);
-                }
-
-                return new Combo<T> { Templates = copy };
-            }
+            return new FSkipUntil<T> { Until = needle };
         }
 
-        class FSkipUntil<T> : FStringTemplate<T> where T : class
+        /// <summary>
+        /// Advance in the string until <paramref name="needle"/> is encountered.
+        /// 
+        /// Subsequent directives begin after <paramref name="needle"/>.
+        /// 
+        /// If <paramref name="needle"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Until<T>(this FStringTemplate<T> template, string needle) where T : class
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return Until.Length; }
-            }
-
-            internal string Until { get; set; }
-
-            internal override void Emit(ILGenerator il)
-            {
-                il.SetScratchSpace(Until);
-
-                var failure = il.DefineLabel();
-                var forL = il.DefineLabel();
-                var possibleMatch = il.DefineLabel();
-                var resume = il.DefineLabel();
-                var finished = il.DefineLabel();
-
-                il.MarkLabel(forL);
-
-                il.LoadAccumulator();                       // accumulator
-                il.LoadToParseLength();                     // toParse.Length accumulator
-                il.Emit(OpCodes.Ldc_I4, Until.Length - 1);  // <Until.Length - 1> toParse.Length accumulator
-                il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator
-                il.Emit(OpCodes.Beq_S, failure);            // --empty--
-
-                il.LoadToParse();           // *char[]
-                il.LoadAccumulator();       // accumulator *char[]
-                il.Emit(OpCodes.Ldelem_I2); // char
-                il.LoadScratchSpace();      // *char[] char
-                il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] char
-                il.Emit(OpCodes.Ldelem_I2); // char char
-                il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
-
-                il.MarkLabel(resume);
-                il.IncrementAccumulator();
-                il.Emit(OpCodes.Br_S, forL);  // repeat the loop
-
-                //-- when we've got a hit on the first char in scratch comparsed to toParse, we come here --//
-                il.MarkLabel(possibleMatch);
-                il.CheckForMatchFromOne(Until, resume, finished);
-
-                //-- when something goes wrong, this gets called --//
-                il.MarkLabel(failure);  // --empty--
-                il.CallFailureAndReturn<T>(0);
-
-                //-- branch here when we've actually had success matching --//
-                il.MarkLabel(finished);
-            }
+            return template.Append(Until<T>(needle));
         }
 
-        class FTakeUntil<T> : FStringTemplate<T> where T : class
+        private static MemberInfo FindMember<T>(string member)
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return Until.Length; }
-            }
+            var members = typeof(T).GetMember(member).Where(w => w is PropertyInfo || w is FieldInfo).ToList();
 
-            internal string Until { get; set; }
-            internal MemberInfo Into { get; set; }
-            internal string Format { get; set; }
+            if (members.Count == 0) throw new ArgumentException(member + " field or property does not exist on " + typeof(T).Name);
 
-            internal override void Emit(ILGenerator il)
-            {
-                il.SetScratchSpace(Until);
-
-                il.LoadObjectBeingBuild();  // *built
-                il.LoadAccumulator();       // start *built
-
-                var failure = il.DefineLabel();
-                var forL = il.DefineLabel();
-                var possibleMatch = il.DefineLabel();
-                var resume = il.DefineLabel();
-                var finished = il.DefineLabel();
-
-                il.MarkLabel(forL);
-
-                il.LoadAccumulator();                       // accumulator start *built
-                il.LoadToParseLength();                     // toParse.Length accumulator start *built
-                il.Emit(OpCodes.Ldc_I4, Until.Length - 1);  // <Until.Length - 1> toParse.Length accumulator start *built
-                il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator start *built
-                il.Emit(OpCodes.Beq, failure);              // start *built
-
-                il.LoadToParse();           // *char[] start *built
-                il.LoadAccumulator();       // accumulator *char[] start *built
-                il.Emit(OpCodes.Ldelem_I2); // char start *built
-                il.LoadScratchSpace();      // *char[] char start *built
-                il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] char start *built
-                il.Emit(OpCodes.Ldelem_I2); // char char start *built
-                il.Emit(OpCodes.Beq_S, possibleMatch); // start *built
-
-                il.MarkLabel(resume);
-                il.IncrementAccumulator();      // start *built
-                il.Emit(OpCodes.Br_S, forL);    // repeat the loop
-
-                //-- when we've got a hit on the first char in scratch comparsed to toParse, we come here --//
-                il.MarkLabel(possibleMatch);
-                il.CheckForMatchFromOne(Until, resume, finished);
-
-                //-- when something goes wrong, this gets called --//
-                il.MarkLabel(failure);          // start *built
-                il.CallFailureAndReturn<T>(2);
-
-                //-- branch here when we've actually had success matching --//
-                il.MarkLabel(finished);                 // start *built
-
-                var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
-
-                il.StoreScratchInt();                   // *built
-                il.LoadToParse();                       // <*char[] toParse> *built
-                il.LoadScratchInt();                    // start <*char[] toParse> *built
-                il.LoadParseBuffer();                   // <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Ldc_I4_0);              // 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.LoadAccumulator();                   // accumulator 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.LoadScratchInt();                    // start accumulator 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Sub);                   // <accumulator-start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length <accumulator-start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Sub);                   // <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Dup);                   // <accumulator-start-Until.Length> <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.StoreScratchInt();                   // <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Call, copyArray);       // *built
-                il.LoadParseBuffer();                   // <*char[] toParse> *built
-                il.LoadScratchInt();                    // length <*char[] toParse> *built
-                il.ParseAndSet(Into, Format);
-            }
-
-            internal override Action<string, T> GetOnFailure()
-            {
-                return (a, b) => { };
-            }
+            return members.Single();
         }
 
-        class FTakeRest<T> : FStringTemplate<T> where T : class
+        /// <summary>
+        /// Takes characters from the input string, and puts them in the property
+        /// or field referenced by <paramref name="member"/> until <paramref name="until"/> is encountered.
+        /// 
+        /// <paramref name="until"/> is not placed in <paramref name="member"/>.
+        /// 
+        /// Subsequent directives begin after <paramref name="until"/>
+        /// 
+        /// If <paramref name="until"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(string until, string member, string format = null) where T : class
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return 0; }
-            }
-
-            internal MemberInfo Into { get; set; }
-
-            internal string Format { get; set; }
-
-            [ExcludeFromCodeCoverage]
-            internal override FStringTemplate<T> Append(FStringTemplate<T> template)
-            {
-                throw new InvalidOperationException("TakeRest cannot be followed by any operation");
-            }
-
-            internal override void Emit(ILGenerator il)
-            {
-                il.LoadObjectBeingBuild();  // *built
-
-                il.LoadToParse();           // <*char[] toParse> *built
-                il.LoadAccumulator();       // start <*char[] toParse> *built
-                il.LoadParseBuffer();       // <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Ldc_I4_0);  // 0 <*char[] parseBuffer> start <*char[] toParse> *built
-
-                il.LoadToParseLength();     // toParseLength 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.LoadAccumulator();       // start toParseLength 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.Emit(OpCodes.Sub);       // <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                
-                il.Emit(OpCodes.Dup);       // <toParseLength - start> <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-                il.StoreScratchInt();       // <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-
-                var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
-                
-                il.Emit(OpCodes.Call, copyArray);   // *built
-                il.LoadParseBuffer();               // *char[] *built
-                il.LoadScratchInt();                // length *char[] *built
-                il.ParseAndSet(Into, Format);
-            }
+            return Take<T>(until, FindMember<T>(member), format);
         }
 
-        class FElse<T> : FStringTemplate<T> where T : class
+        /// <summary>
+        /// Takes characters from the input string, and puts them in the property
+        /// or field referenced by <paramref name="member"/> until <paramref name="until"/> is encountered.
+        /// 
+        /// <paramref name="until"/> is not placed in <paramref name="member"/>.
+        /// 
+        /// Subsequent directives begin after <paramref name="until"/>
+        /// 
+        /// If <paramref name="until"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(string until, MemberInfo member, string format = null) where T : class
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return 0; }
-            }
+            ValidateMember<T>(member, format);
 
-            internal Action<string, T> Call { get; set; }
-
-            [ExcludeFromCodeCoverage]
-            internal override void Emit(ILGenerator il)
-            {
-                throw new InvalidOperationException("Just an Else cannot be emitted");
-            }
+            return new FTakeUntil<T> { Until = until, Into = member, Format = format };
         }
 
-        class FMoveN<T> : FStringTemplate<T> where T : class
+        /// <summary>
+        /// Takes characters from the input string, and puts them in the property
+        /// or field referenced by <paramref name="member"/> until <paramref name="needle"/> is encountered.
+        /// 
+        /// <paramref name="needle"/> is not placed in <paramref name="member"/>.
+        /// 
+        /// Subsequent directives begin after <paramref name="needle"/>
+        /// 
+        /// If <paramref name="needle"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, string member, string format = null) where T : class
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return 0; }
-            }
-
-            internal int N { get; set; }
-
-            internal override void Emit(ILGenerator il)
-            {
-                var finished = il.DefineLabel();
-                var failure = il.DefineLabel();
-
-                il.LoadAccumulator();       // accumulator
-                il.Emit(OpCodes.Ldc_I4, N); // N accumulator
-                il.Emit(OpCodes.Add);       // <accumulator + N>
-                il.StoreAccumulator();      // --empty--
-
-                // Bounds Checking
-                il.LoadAccumulator();               // accumulator
-                il.Emit(OpCodes.Ldc_I4_M1);         // -1 accumulator
-                il.Emit(OpCodes.Ble_S, failure);    // --empty--
-
-                il.LoadAccumulator();               // accumulator
-                il.LoadToParseLength();             // toParse.Length accumulator
-                il.Emit(OpCodes.Bge_S, failure);    // --empty--
-
-                il.Emit(OpCodes.Br_S, finished);
-
-                // branch here if bounds checking fails
-                il.MarkLabel(failure);      
-                il.CallFailureAndReturn<T>(0);
-
-                // branch here when we're done, without error
-                il.MarkLabel(finished);
-            }
+            return Take<T>(template, until, FindMember<T>(member), format);
         }
 
-        class FTakeN<T> : FStringTemplate<T> where T : class
+        /// <summary>
+        /// Takes characters from the input string, and puts them in the property
+        /// or field referenced by <paramref name="member"/> until <paramref name="needle"/> is encountered.
+        /// 
+        /// <paramref name="needle"/> is not placed in <paramref name="member"/>.
+        /// 
+        /// Subsequent directives begin after <paramref name="needle"/>
+        /// 
+        /// If <paramref name="needle"/> is not found, any Else directive is run.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, MemberInfo member, string format = null) where T : class
         {
-            internal override int NeededStringScratchSpace
-            {
-                get { return 0; }
-            }
+            return template.Append(Take<T>(until, member, format));
+        }
 
-            internal int N { get; set; }
-            internal MemberInfo Into { get; set; }
-            internal string Format { get; set; }
+        /// <summary>
+        /// Every set of directives can have a single Else directive.
+        /// 
+        /// If any directive fails (expected string not found, moves before the start of the input string, or past
+        /// the end) the Else directive will be invoked.
+        /// 
+        /// The Else directive must be the last one to appear.
+        /// </summary>
+        public static FStringTemplate<T> Else<T>(this FStringTemplate<T> template, Action<string, T> call) where T : class
+        {
+            return template.Append(new FElse<T> { Call = call });
+        }
 
-            internal override void Emit(ILGenerator il)
-            {
-                var finished = il.DefineLabel();
-                var failure = il.DefineLabel();
+        /// <summary>
+        /// Every directive can have a single TakeRest directive.
+        /// 
+        /// This takes the remainder of the input string, and places it into the field
+        /// or property specified by <paramref name="member"/>.
+        /// 
+        /// Nothing can follow a TakeRest directive except an Else.
+        /// </summary>
+        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, string member, string format = null) where T : class
+        {
+            return TakeRest<T>(template, FindMember<T>(member), format);
+        }
 
-                il.LoadAccumulator();           // accumulator
-                il.Emit(OpCodes.Ldc_I4, N);     // N accumulator
-                il.Emit(OpCodes.Add);           // <accumulator+N>
-                il.LoadToParseLength();         // toParse.Length <accumulator+N>
-                il.Emit(OpCodes.Bge, failure);  // --empty--
+        /// <summary>
+        /// Every directive can have a single TakeRest directive.
+        /// 
+        /// This takes the remainder of the input string, and places it into the field
+        /// or property specified by <paramref name="member"/>.
+        /// 
+        /// Nothing can follow a TakeRest directive except an Else.
+        /// </summary>
+        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, MemberInfo member, string format = null) where T : class
+        {
+            ValidateMember<T>(member, format);
 
-                var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
+            return template.Append(new FTakeRest<T> { Into = member, Format = format });
+        }
 
-                il.LoadToParse();                 // <char[]* toParse>
-                il.LoadAccumulator();             // accumulator <char[]* toParse>
-                il.LoadParseBuffer();             // <char[]* parseBuffer> acccumulator <char[]* toParse>
-                il.Emit(OpCodes.Ldc_I4_0);        // 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
-                il.Emit(OpCodes.Ldc_I4, N);       // N 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
-                il.Emit(OpCodes.Call, copyArray); // --empty--
+        /// <summary>
+        /// Advances a certain number of characters in the string.
+        /// 
+        /// If the current index into the string is moved out of bounds,
+        /// the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Skip<T>(int n) where T : class
+        {
+            if (n <= 0) throw new ArgumentException("Skip expects a positive, non-zero, value; found [" + n + "]");
 
-                il.LoadObjectBeingBuild();        // *built
-                il.LoadParseBuffer();             // <char[]* parseBuffer> *built
-                il.Emit(OpCodes.Ldc_I4, N);       // N <char[]* parseBuffer> *built
-                il.ParseAndSet(Into, Format);     // --empty--
-                il.Emit(OpCodes.Br, finished);
+            return new FMoveN<T> { N = n };
+        }
 
-                // branch here if bounds checking fails
-                il.MarkLabel(failure);          // --empty--
-                il.CallFailureAndReturn<T>(0);
+        /// <summary>
+        /// Advances a certain number of characters in the string.
+        /// 
+        /// If the current index into the string is moved out of bounds,
+        /// the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Skip<T>(this FStringTemplate<T> template, int n) where T : class
+        {
+            return template.Append(Skip<T>(n));
+        }
 
-                // branch here when we're ready to continue with parsing
-                il.MarkLabel(finished);
-                il.LoadAccumulator();           // accumulator
-                il.Emit(OpCodes.Ldc_I4, N);     // N accumulator
-                il.Emit(OpCodes.Add);           // <accumulator+N>
-                il.StoreAccumulator();          // --empty--
-            }
+        /// <summary>
+        /// Backtracks a certain number of characters in the string.
+        /// 
+        /// If the current index into the string is moved out of bounds,
+        /// the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Back<T>(int n) where T : class
+        {
+            if (n <= 0) throw new ArgumentException("Back expects a positive, non-zero, value; found [" + n + "]");
 
-            internal override Action<string, T> GetOnFailure()
-            {
-                return (a, b) => { };
-            }
+            return new FMoveN<T> { N = -1 * n };
+        }
+
+        /// <summary>
+        /// Backtracks a certain number of characters in the string.
+        /// 
+        /// If the current index into the string is moved out of bounds,
+        /// the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Back<T>(this FStringTemplate<T> template, int n) where T : class
+        {
+            return template.Append(Back<T>(n));
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(int n, string into, string format = null) where T : class
+        {
+            return Take<T>(n, FindMember<T>(into), format);
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(int n, MemberInfo into, string format = null) where T : class
+        {
+            if (n <= 0) throw new ArgumentException("Take expects a positive, non-zero value; found [" + n + "]");
+
+            ValidateMember<T>(into, format);
+
+            return new FTakeN<T> { N = n, Into = into, Format = format };
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, string into, string format = null) where T : class
+        {
+            return Take<T>(template, n, FindMember<T>(into), format);
+        }
+
+        /// <summary>
+        /// Take a specific number of characters from the input string, parse them, and put
+        /// them into the given property on T.
+        /// 
+        /// Expects a positive, non-zero n.
+        /// </summary>
+        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, MemberInfo into, string format = null) where T : class
+        {
+            return template.Append(Take<T>(n, into, format));
+        }
+
+        /// <summary>
+        /// Concatenate one series of directives with another.
+        /// 
+        /// Will error if multiple TakeRest or Else directives
+        /// are defined by the union of the two series.
+        /// </summary>
+        public static FStringTemplate<T> Append<T>(this FStringTemplate<T> left, FStringTemplate<T> right) where T : class
+        {
+            return left.Append(right);
         }
     }
 }
