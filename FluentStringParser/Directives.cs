@@ -10,8 +10,6 @@ namespace FluentStringParser
 {
     public abstract class FSTemplate<T> where T : class
     {
-        internal abstract int NeededStringScratchSpace { get; }
-
         internal virtual FSTemplate<T> Append(FSTemplate<T> template)
         {
             var copy = new List<FSTemplate<T>>();
@@ -73,7 +71,7 @@ namespace FluentStringParser
 
             var il = method.GetILGenerator();
 
-            il.Initialize(NeededStringScratchSpace);
+            il.Initialize();
 
             // Put the whole thing in a try/catch
             il.BeginExceptionBlock();
@@ -106,11 +104,6 @@ namespace FluentStringParser
 
     class Combo<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return Templates.Max(m => m.NeededStringScratchSpace); }
-        }
-
         public List<FSTemplate<T>> Templates { get; set; }
 
         internal override void Emit(ILGenerator il)
@@ -168,17 +161,10 @@ namespace FluentStringParser
 
     class FSkipUntil<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return Until.Length; }
-        }
-
         internal string Until { get; set; }
 
         internal override void Emit(ILGenerator il)
         {
-            il.SetScratchSpace(Until);
-
             var failure = il.DefineLabel();
             var forL = il.DefineLabel();
             var possibleMatch = il.DefineLabel();
@@ -196,9 +182,8 @@ namespace FluentStringParser
             il.LoadToParse();           // *char[]
             il.LoadAccumulator();       // accumulator *char[]
             il.Emit(OpCodes.Ldelem_I2); // char
-            il.LoadScratchSpace();      // *char[] char
-            il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] char
-            il.Emit(OpCodes.Ldelem_I2); // char char
+
+            il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char
             il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
 
             il.MarkLabel(resume);
@@ -222,11 +207,6 @@ namespace FluentStringParser
     {
         public string Until { get; set; }
 
-        internal override int NeededStringScratchSpace
-        {
-            get { return Until.Length; }
-        }
-
         internal override void Emit(ILGenerator il)
         {
             var failure = il.DefineLabel();
@@ -234,8 +214,6 @@ namespace FluentStringParser
             var forLoop = il.DefineLabel();
             var possibleMatch = il.DefineLabel();
             var resume = il.DefineLabel();
-
-            il.SetScratchSpace(Until);
 
             il.LoadToParseLength();                 // toParse.Length
             il.LoadAccumulator();                   // accumulator toParse.Length
@@ -258,9 +236,7 @@ namespace FluentStringParser
             il.LoadToParse();           // *char[]
             il.LoadAccumulator();       // accumulator *char[]
             il.Emit(OpCodes.Ldelem_I2); // char
-            il.LoadScratchSpace();      // *char[] char
-            il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] char
-            il.Emit(OpCodes.Ldelem_I2); // char char
+            il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char
             il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
 
             il.MarkLabel(resume);           // --empty--
@@ -285,19 +261,12 @@ namespace FluentStringParser
 
     class FTakeUntil<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return Until.Length; }
-        }
-
         internal string Until { get; set; }
         internal MemberInfo Into { get; set; }
         internal string Format { get; set; }
 
         internal override void Emit(ILGenerator il)
         {
-            il.SetScratchSpace(Until);
-
             il.LoadObjectBeingBuild();  // *built
             il.LoadAccumulator();       // start *built
 
@@ -318,9 +287,9 @@ namespace FluentStringParser
             il.LoadToParse();           // *char[] start *built
             il.LoadAccumulator();       // accumulator *char[] start *built
             il.Emit(OpCodes.Ldelem_I2); // char start *built
-            il.LoadScratchSpace();      // *char[] char start *built
-            il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] char start *built
-            il.Emit(OpCodes.Ldelem_I2); // char char start *built
+
+            il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char start *built
+
             il.Emit(OpCodes.Beq_S, possibleMatch); // start *built
 
             il.MarkLabel(resume);
@@ -366,11 +335,6 @@ namespace FluentStringParser
 
     class FTakeRest<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return 0; }
-        }
-
         internal MemberInfo Into { get; set; }
 
         internal string Format { get; set; }
@@ -408,11 +372,6 @@ namespace FluentStringParser
 
     class FElse<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return 0; }
-        }
-
         internal Action<string, T> Call { get; set; }
 
         [ExcludeFromCodeCoverage]
@@ -424,11 +383,6 @@ namespace FluentStringParser
 
     class FMoveN<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return 0; }
-        }
-
         internal int N { get; set; }
 
         internal override void Emit(ILGenerator il)
@@ -463,11 +417,6 @@ namespace FluentStringParser
 
     class FTakeN<T> : FSTemplate<T> where T : class
     {
-        internal override int NeededStringScratchSpace
-        {
-            get { return 0; }
-        }
-
         internal int N { get; set; }
         internal MemberInfo Into { get; set; }
         internal string Format { get; set; }

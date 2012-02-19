@@ -13,7 +13,7 @@ namespace FluentStringParser
     {
         internal class ControlException : Exception { }
 
-        internal static void Initialize(this ILGenerator il, int neededScratchSpace)
+        internal static void Initialize(this ILGenerator il)
         {
             var toParseLength = il.DeclareLocal(typeof(int));
             var toParseAsChar = il.DeclareLocal(typeof(char[]));
@@ -47,19 +47,9 @@ namespace FluentStringParser
 
             il.Emit(OpCodes.Ldc_I4_0);          // 0
             il.Emit(OpCodes.Stloc, scratchInt2);// --empty--
-
-            LocalBuilder scratch = null;
-            if (neededScratchSpace > 0)
-            {
-                scratch = il.DeclareLocal(typeof(char[]));
-
-                il.Emit(OpCodes.Ldc_I4, neededScratchSpace);  // NeededStringScrathSpace
-                il.Emit(OpCodes.Newarr, typeof(char));              // *char[]
-                il.Emit(OpCodes.Stloc, scratch);                    // --empty--
-            }
-
+            
             // Break this out for code coverage purposes
-            _InitializeFailureCheck(toParseLength, toParseAsChar, accumulator, parseBuffer, scratchInt, scratchLong, scratchInt2, scratch);
+            _InitializeFailureCheck(toParseLength, toParseAsChar, accumulator, parseBuffer, scratchInt, scratchLong, scratchInt2);
         }
 
         [ExcludeFromCodeCoverage]
@@ -70,8 +60,7 @@ namespace FluentStringParser
             LocalBuilder parseBuffer,
             LocalBuilder scratchInt,
             LocalBuilder scratchLong,
-            LocalBuilder scratchInt2, 
-            LocalBuilder scratch)
+            LocalBuilder scratchInt2)
         {
             if (toParseLength.LocalIndex != 0) throw new InvalidOperationException();
             if (toParseAsChar.LocalIndex != 1) throw new InvalidOperationException();
@@ -80,26 +69,11 @@ namespace FluentStringParser
             if (scratchInt.LocalIndex != 4) throw new InvalidOperationException();
             if (scratchLong.LocalIndex != 5) throw new InvalidOperationException();
             if (scratchInt2.LocalIndex != 6) throw new InvalidOperationException();
-
-            if (scratch != null && scratch.LocalIndex != 7) throw new InvalidOperationException();
         }
 
         internal static void LoadObjectBeingBuild(this ILGenerator il)
         {
             il.Emit(OpCodes.Ldarg_1);
-        }
-
-        internal static void SetScratchSpace(this ILGenerator il, string toStr)
-        {
-            // Stack (pretending): --empty--
-
-            for (int i = 0; i < toStr.Length; i++)
-            {
-                il.LoadScratchSpace();
-                il.Emit(OpCodes.Ldc_I4, i);                 // i <*char[] scratch>
-                il.Emit(OpCodes.Ldc_I4_S, toStr[i]);        // c i <*char[] scratch>
-                il.Emit(OpCodes.Stelem, typeof(char));      // --empty--
-            }
         }
 
         internal static void CallFailureAndReturn<T>(this ILGenerator il, int onStack, bool dontReturn = false)
@@ -175,11 +149,6 @@ namespace FluentStringParser
         internal static void StoreScratchInt2(this ILGenerator il)
         {
             il.Emit(OpCodes.Stloc, 6);
-        }
-
-        internal static void LoadScratchSpace(this ILGenerator il)
-        {
-            il.Emit(OpCodes.Ldloc, 7);
         }
 
         internal static void IncrementAccumulator(this ILGenerator il)
