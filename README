@@ -4,32 +4,61 @@ Add a reference and
 
   using FluentStringParser;
 
-to your code to get start.
+to your code to get started.
 
-Start compose a parser with
+Start composing a parser with one of
 
-  FStringTemplate.Take<MyObject>(...)
-  FStringTemplate.Skip<MyObject>(...)
+  FSBuilder.Take<MyObject>(...)
+  FSBuilder.Skip<MyObject>(...)
+  FSBuilder.Until<MyObject>(...)
 
-you can chain calls to build more interesting parsers
+you can chain directives to build more interesting parsers
 
-  FStringTemplate
-    .Skip<MyObject>(":=")
-    .Take(";", _MyObjectProp)
+  FSBuilder
+    .Until<MyObject>(":=")
+    .Take(";", "MyProperty")
 
 Parsers can only set fields and properties on reference types,
 and only primitive number types, DateTimes, TimeSpans, and strings
 can be parsed at this time.  DateTimes and TimeSpans can have
 custom format strings specified for parsing them.
 
-Else and TakeRest are available only as the second or later
+Back, Else, and TakeRest are available only as the second or later
 directives in a parser.  Only one of each may appear in a 
 single parser.
 
 Else can only appear as the last directive to a parser.
 
 Once finished composing, create a delegate for actual use
-by calling Seal().
+by calling Seal().  Seal() returns an Action<string, MyObject>, 
+allowing for the reuse of scratch objects.
 
-Seal() returns an Action<string, MyObject>, allowing for
-the reuse of scratch objects.
+Available directives:
+  - Append
+    * combine two directives into one, done implicitly for chained calls
+  - Back(int)
+    * move back a number of characters in the string
+  - Back(string)
+    * move back until a given string is encountered
+	* parsing resumes immediately after the string
+  - Else(Action<string, T>)
+    * if a directive cannot be followed, the Else directive is executed
+	* only one Else can be given, and it must be the last directive used
+  - Skip(int)
+    * move a number of characters forward in the string
+  - Take(int, Member, format)
+    * takes a number of characters into a given member, optionally using a format string
+	* members must be fields or properties, and can be passed as either a string or MemberInfo
+	* format strings are only valid when parsing DateTimes or TimeSpans
+  - Take(string, Member, format)
+    * takes from the string into a given member until a given string is encountered, optionally using a format string
+	* parsing resumes immediately after the given string
+	* members must be fields or properties, and can be passed as either a string or MemberInfo
+	* format strings are only valid when parsing DateTimes or TimeSpans
+  - TakeRest(member, format)
+    * takes the remainder of the string into a given member, optionally using a format string
+	* members must be fields or properties, and can be passed as either a string or MemberInfo
+	* format strings are only valid when parsing DateTimes or TimeSpans
+	* only one TakeRest directive can be given, and only an Else can follow it
+  - Until(string)
+    * moves forward in the string until a given string is encountered

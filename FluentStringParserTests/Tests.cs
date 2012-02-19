@@ -114,11 +114,11 @@ namespace FluentStringParserTests
         static Tests()
         {
             var step1 =
-                FStringParser
+                FSBuilder
                 .Until<LogRow>(" ");
 
             var step2 = 
-                FStringParser
+                FSBuilder
                 .Take<LogRow>(":", "ClientIp")
                 .Until("[")
                 .Take("]", LogProp("CreationDate"), format: "dd/MMM/yyyy:HH:mm:ss.fff")
@@ -139,7 +139,7 @@ namespace FluentStringParserTests
                 .Until(" ");
 
             var step3 = 
-                FStringParser
+                FSBuilder
                 .Take<LogRow>("/", LogProp("ActConn"))
                 .Take("/", "FeConn")
                 .Take("/", LogProp("BeConn"))
@@ -328,7 +328,7 @@ namespace FluentStringParserTests
         public void Decimals()
         {
             var parser =
-                FStringParser
+                FSBuilder
                     .Take<DecimalObject>(",", typeof(DecimalObject).GetProperty("A"))
                     .TakeRest(typeof(DecimalObject).GetProperty("B"))
                     .Seal();
@@ -344,7 +344,7 @@ namespace FluentStringParserTests
         [TestMethod]
         public void StandAloneTake()
         {
-            var parser = FStringParser.Take<DecimalObject>("|", typeof(DecimalObject).GetProperty("A")).Seal();
+            var parser = FSBuilder.Take<DecimalObject>("|", typeof(DecimalObject).GetProperty("A")).Seal();
 
             var obj = new DecimalObject();
 
@@ -356,7 +356,7 @@ namespace FluentStringParserTests
         [TestMethod]
         public void StandAloneTakeN()
         {
-            var parser = FStringParser.Take<DecimalObject>(4, typeof(DecimalObject).GetProperty("A")).Seal();
+            var parser = FSBuilder.Take<DecimalObject>(4, typeof(DecimalObject).GetProperty("A")).Seal();
 
             var obj = new DecimalObject();
 
@@ -375,7 +375,7 @@ namespace FluentStringParserTests
         [TestMethod]
         public void TimeSpanDateTime()
         {
-            var simple = FStringParser.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A")).TakeRest(typeof(TimeSpanObject).GetField("B")).Seal();
+            var simple = FSBuilder.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A")).TakeRest(typeof(TimeSpanObject).GetField("B")).Seal();
 
             var span1 = System.TimeSpan.FromDays(1);
             var span2 = System.TimeSpan.FromMilliseconds((new Random()).Next(1000000));
@@ -387,14 +387,14 @@ namespace FluentStringParserTests
             Assert.AreEqual(span1, obj.A);
             Assert.AreEqual(span2, obj.B.Value);
 
-            var complex = FStringParser.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A"), format: "G").TakeRest(typeof(TimeSpanObject).GetField("B"), format: "g").Seal();
+            var complex = FSBuilder.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A"), format: "G").TakeRest(typeof(TimeSpanObject).GetField("B"), format: "g").Seal();
 
             complex(span2.ToString("G") + "|" + span1.ToString("g"), obj);
 
             Assert.AreEqual(span2, obj.A);
             Assert.AreEqual(span1, obj.B.Value);
 
-            var date = FStringParser.Take<TimeSpanObject>("|", "C").Seal();
+            var date = FSBuilder.Take<TimeSpanObject>("|", "C").Seal();
 
             var newDate = DateTime.UtcNow;
 
@@ -412,7 +412,7 @@ namespace FluentStringParserTests
         [TestMethod]
         public void NumberAsEnum()
         {
-            var simple = FStringParser.Take<EnumObject>("|", "A").Else((s, o) => { throw new InvalidOperationException(); }).Seal();
+            var simple = FSBuilder.Take<EnumObject>("|", "A").Else((s, o) => { throw new InvalidOperationException(); }).Seal();
 
             var obj = new EnumObject();
 
@@ -424,7 +424,7 @@ namespace FluentStringParserTests
         [TestMethod]
         public void NameAsEnum()
         {
-            var simple = FStringParser.Take<EnumObject>("|", "A").TakeRest("B").Else((s, o) => { throw new InvalidOperationException(); }).Seal();
+            var simple = FSBuilder.Take<EnumObject>("|", "A").TakeRest("B").Else((s, o) => { throw new InvalidOperationException(); }).Seal();
 
             var obj = new EnumObject();
 
@@ -446,7 +446,7 @@ namespace FluentStringParserTests
         public void Overflows()
         {
             var parse =
-                FStringParser
+                FSBuilder
                     .Take<ValueObject>(",", "A")
                     .Take(",", "B")
                     .Take(",", "C")
@@ -506,7 +506,7 @@ namespace FluentStringParserTests
         [TestMethod]
         public void FloatsDoubles()
         {
-            var parse = FStringParser.Take<FloatAndDouble>(",", "A").TakeRest("B").Seal();
+            var parse = FSBuilder.Take<FloatAndDouble>(",", "A").TakeRest("B").Seal();
 
             var rand = new Random();
             var a = (float)rand.NextDouble();
@@ -549,7 +549,7 @@ namespace FluentStringParserTests
         public void Unsigned()
         {
             var parse =
-                FStringParser
+                FSBuilder
                 .Take<UnsignedObject>(",", "A")
                 .Take(",", "B")
                 .Take(",", "C")
@@ -570,7 +570,7 @@ namespace FluentStringParserTests
         public void FixedSteps()
         {
             var parse =
-                FStringParser
+                FSBuilder
                 .Take<UnsignedObject>(4, "A")
                 .Back(2)
                 .Take(",", "B")
@@ -589,8 +589,8 @@ namespace FluentStringParserTests
         [TestMethod]
         public void Errors()
         {
-            var left = FStringParser.Take<UnsignedObject>("|", "A").Else((s, o) => { });
-            var right = FStringParser.Take<UnsignedObject>("|", "B").Else((s, o) => { });
+            var left = FSBuilder.Take<UnsignedObject>("|", "A").Else((s, o) => { });
+            var right = FSBuilder.Take<UnsignedObject>("|", "B").Else((s, o) => { });
 
             try
             {
@@ -599,8 +599,8 @@ namespace FluentStringParserTests
             }
             catch (Exception) {  }
 
-            left = FStringParser.Skip<UnsignedObject>(1).TakeRest("A");
-            right = FStringParser.Skip<UnsignedObject>(1).TakeRest("B");
+            left = FSBuilder.Skip<UnsignedObject>(1).TakeRest("A");
+            right = FSBuilder.Skip<UnsignedObject>(1).TakeRest("B");
 
             try
             {
@@ -611,103 +611,103 @@ namespace FluentStringParserTests
 
             try
             {
-                FStringParser.Take<UnsignedObject>(5, "HelloWorld");
+                FSBuilder.Take<UnsignedObject>(5, "HelloWorld");
                 Assert.Fail("Property does not exist");
             }
             catch (Exception) { }
 
             // These *shouldn't* throw exceptions
-            FStringParser.Take<UnsignedObject>("|", "A").Seal()("345212", new UnsignedObject());
-            FStringParser.Take<UnsignedObject>(4, "A").Seal()("1", new UnsignedObject());
-            FStringParser.Take<UnsignedObject>(1, "A").Take("|", "B").Seal()("asdf", new UnsignedObject());
+            FSBuilder.Take<UnsignedObject>("|", "A").Seal()("345212", new UnsignedObject());
+            FSBuilder.Take<UnsignedObject>(4, "A").Seal()("1", new UnsignedObject());
+            FSBuilder.Take<UnsignedObject>(1, "A").Take("|", "B").Seal()("asdf", new UnsignedObject());
 
             try
             {
-                FStringParser.Back<UnsignedObject>(-4);
+                FSBuilder.Skip<UnsignedObject>(1).Back(-4);
                 Assert.Fail("Back shouldn't accept negatives");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Skip<UnsignedObject>(-4);
+                FSBuilder.Skip<UnsignedObject>(-4);
                 Assert.Fail("Skip shouldn't accept negatives");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(-4, "A");
+                FSBuilder.Take<UnsignedObject>(-4, "A");
                 Assert.Fail("Take shouldn't accept negatives");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, "Bad");
+                FSBuilder.Take<UnsignedObject>(4, "Bad");
                 Assert.Fail("Bad should not be deserializable");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, typeof(string).GetMember("Length")[0]);
+                FSBuilder.Take<UnsignedObject>(4, typeof(string).GetMember("Length")[0]);
                 Assert.Fail("Length is not on UnsignedObject");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, typeof(UnsignedObject).GetMember("ToString")[0]);
+                FSBuilder.Take<UnsignedObject>(4, typeof(UnsignedObject).GetMember("ToString")[0]);
                 Assert.Fail("ToString is not a field or property");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, "Hidden");
+                FSBuilder.Take<UnsignedObject>(4, "Hidden");
                 Assert.Fail("Hidden is not settable");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, "Static");
+                FSBuilder.Take<UnsignedObject>(4, "Static");
                 Assert.Fail("Statis is not an instance property");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, "StaticField");
+                FSBuilder.Take<UnsignedObject>(4, "StaticField");
                 Assert.Fail("StaticField is not an instance field");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(4, "A", format: "yyyy-mm-dd");
+                FSBuilder.Take<UnsignedObject>(4, "A", format: "yyyy-mm-dd");
                 Assert.Fail("A is not a DateTime or TimeSpan");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(",", "DT", format: "asdf");
+                FSBuilder.Take<UnsignedObject>(",", "DT", format: "asdf");
                 Assert.Fail("DateTime format string is invalid");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>(",", "TS", format: "asdf");
+                FSBuilder.Take<UnsignedObject>(",", "TS", format: "asdf");
                 Assert.Fail("TimeSpan format string is invalid");
             }
             catch (Exception) { }
 
             try
             {
-                FStringParser.Take<UnsignedObject>("", "TS");
+                FSBuilder.Take<UnsignedObject>("", "TS");
                 Assert.Fail("An empty until is invalid");
             }
             catch (Exception) { }
@@ -723,7 +723,7 @@ namespace FluentStringParserTests
         public void BackUntil()
         {
             var parse =
-                FStringParser
+                FSBuilder
                     .Skip<StringObject>(6)
                     .Take(1, "Raw1")
                     .Back("hello")

@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace FluentStringParser
 {
-    public static class FStringParser
+    public static class FSBuilder
     {
         private static void KnownTypeCheck(string name, Type t)
         {
@@ -110,7 +110,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Until<T>(string needle) where T : class
+        public static FSTemplate<T> Until<T>(string needle) where T : class
         {
             ValidateNeedle(needle, "needle");
 
@@ -124,7 +124,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Until<T>(this FStringTemplate<T> template, string needle) where T : class
+        public static FSTemplate<T> Until<T>(this FSTemplate<T> template, string needle) where T : class
         {
             return template.Append(Until<T>(needle));
         }
@@ -148,7 +148,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="until"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(string until, string member, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(string until, string member, string format = null) where T : class
         {
             return Take<T>(until, FindMember<T>(member), format);
         }
@@ -163,7 +163,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="until"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(string until, MemberInfo member, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(string until, MemberInfo member, string format = null) where T : class
         {
             ValidateMember<T>(member, format);
             ValidateNeedle(until, "until");
@@ -181,7 +181,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, string member, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(this FSTemplate<T> template, string until, string member, string format = null) where T : class
         {
             return Take<T>(template, until, FindMember<T>(member), format);
         }
@@ -196,7 +196,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="needle"/> is not found, any Else directive is run.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, string until, MemberInfo member, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(this FSTemplate<T> template, string until, MemberInfo member, string format = null) where T : class
         {
             return template.Append(Take<T>(until, member, format));
         }
@@ -209,7 +209,7 @@ namespace FluentStringParser
         /// 
         /// The Else directive must be the last one to appear.
         /// </summary>
-        public static FStringTemplate<T> Else<T>(this FStringTemplate<T> template, Action<string, T> call) where T : class
+        public static FSTemplate<T> Else<T>(this FSTemplate<T> template, Action<string, T> call) where T : class
         {
             return template.Append(new FElse<T> { Call = call });
         }
@@ -222,7 +222,7 @@ namespace FluentStringParser
         /// 
         /// Nothing can follow a TakeRest directive except an Else.
         /// </summary>
-        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, string member, string format = null) where T : class
+        public static FSTemplate<T> TakeRest<T>(this FSTemplate<T> template, string member, string format = null) where T : class
         {
             return TakeRest<T>(template, FindMember<T>(member), format);
         }
@@ -235,7 +235,7 @@ namespace FluentStringParser
         /// 
         /// Nothing can follow a TakeRest directive except an Else.
         /// </summary>
-        public static FStringTemplate<T> TakeRest<T>(this FStringTemplate<T> template, MemberInfo member, string format = null) where T : class
+        public static FSTemplate<T> TakeRest<T>(this FSTemplate<T> template, MemberInfo member, string format = null) where T : class
         {
             ValidateMember<T>(member, format);
 
@@ -248,7 +248,7 @@ namespace FluentStringParser
         /// If the current index into the string is moved out of bounds,
         /// the directive fails.
         /// </summary>
-        public static FStringTemplate<T> Skip<T>(int n) where T : class
+        public static FSTemplate<T> Skip<T>(int n) where T : class
         {
             if (n <= 0) throw new ArgumentException("Skip expects a positive, non-zero, value; found [" + n + "]");
 
@@ -261,7 +261,7 @@ namespace FluentStringParser
         /// If the current index into the string is moved out of bounds,
         /// the directive fails.
         /// </summary>
-        public static FStringTemplate<T> Skip<T>(this FStringTemplate<T> template, int n) where T : class
+        public static FSTemplate<T> Skip<T>(this FSTemplate<T> template, int n) where T : class
         {
             return template.Append(Skip<T>(n));
         }
@@ -272,22 +272,11 @@ namespace FluentStringParser
         /// If the current index into the string is moved out of bounds,
         /// the directive fails.
         /// </summary>
-        public static FStringTemplate<T> Back<T>(int n) where T : class
+        public static FSTemplate<T> Back<T>(this FSTemplate<T> template, int n) where T : class
         {
             if (n <= 0) throw new ArgumentException("Back expects a positive, non-zero, value; found [" + n + "]");
 
-            return new FMoveN<T> { N = -1 * n };
-        }
-
-        /// <summary>
-        /// Backtracks a certain number of characters in the string.
-        /// 
-        /// If the current index into the string is moved out of bounds,
-        /// the directive fails.
-        /// </summary>
-        public static FStringTemplate<T> Back<T>(this FStringTemplate<T> template, int n) where T : class
-        {
-            return template.Append(Back<T>(n));
+            return template.Append(new FMoveN<T> { N = -1 * n });
         }
 
         /// <summary>
@@ -297,7 +286,7 @@ namespace FluentStringParser
         /// 
         /// If <paramref name="until"/> is not found, the directive fails.
         /// </summary>
-        public static FStringTemplate<T> Back<T>(this FStringTemplate<T> template, string until) where T : class
+        public static FSTemplate<T> Back<T>(this FSTemplate<T> template, string until) where T : class
         {
             ValidateNeedle(until, "until");
 
@@ -310,7 +299,7 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(int n, string into, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(int n, string into, string format = null) where T : class
         {
             return Take<T>(n, FindMember<T>(into), format);
         }
@@ -321,7 +310,7 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(int n, MemberInfo into, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(int n, MemberInfo into, string format = null) where T : class
         {
             if (n <= 0) throw new ArgumentException("Take expects a positive, non-zero value; found [" + n + "]");
 
@@ -336,7 +325,7 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, string into, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(this FSTemplate<T> template, int n, string into, string format = null) where T : class
         {
             return Take<T>(template, n, FindMember<T>(into), format);
         }
@@ -347,7 +336,7 @@ namespace FluentStringParser
         /// 
         /// Expects a positive, non-zero n.
         /// </summary>
-        public static FStringTemplate<T> Take<T>(this FStringTemplate<T> template, int n, MemberInfo into, string format = null) where T : class
+        public static FSTemplate<T> Take<T>(this FSTemplate<T> template, int n, MemberInfo into, string format = null) where T : class
         {
             return template.Append(Take<T>(n, into, format));
         }
@@ -358,7 +347,7 @@ namespace FluentStringParser
         /// Will error if multiple TakeRest or Else directives
         /// are defined by the union of the two series.
         /// </summary>
-        public static FStringTemplate<T> Append<T>(this FStringTemplate<T> left, FStringTemplate<T> right) where T : class
+        public static FSTemplate<T> Append<T>(this FSTemplate<T> left, FSTemplate<T> right) where T : class
         {
             return left.Append(right);
         }

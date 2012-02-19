@@ -8,13 +8,13 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace FluentStringParser
 {
-    public abstract class FStringTemplate<T> where T : class
+    public abstract class FSTemplate<T> where T : class
     {
         internal abstract int NeededStringScratchSpace { get; }
 
-        internal virtual FStringTemplate<T> Append(FStringTemplate<T> template)
+        internal virtual FSTemplate<T> Append(FSTemplate<T> template)
         {
-            var copy = new List<FStringTemplate<T>>();
+            var copy = new List<FSTemplate<T>>();
             copy.Add(this);
 
             var asCombo = template as Combo<T>;
@@ -104,14 +104,14 @@ namespace FluentStringParser
         }
     }
 
-    class Combo<T> : FStringTemplate<T> where T : class
+    class Combo<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {
             get { return Templates.Max(m => m.NeededStringScratchSpace); }
         }
 
-        public List<FStringTemplate<T>> Templates { get; set; }
+        public List<FSTemplate<T>> Templates { get; set; }
 
         internal override void Emit(ILGenerator il)
         {
@@ -138,7 +138,7 @@ namespace FluentStringParser
             return onFailure;
         }
 
-        internal override FStringTemplate<T> Append(FStringTemplate<T> template)
+        internal override FSTemplate<T> Append(FSTemplate<T> template)
         {
             if (Templates.Last() is FElse<T>)
             {
@@ -150,7 +150,7 @@ namespace FluentStringParser
                 throw new InvalidOperationException("No operation other than Else can follow a TakeRest");
             }
 
-            var copy = new List<FStringTemplate<T>>(Templates);
+            var copy = new List<FSTemplate<T>>(Templates);
 
             var asCombo = template as Combo<T>;
             if (asCombo != null)
@@ -166,7 +166,7 @@ namespace FluentStringParser
         }
     }
 
-    class FSkipUntil<T> : FStringTemplate<T> where T : class
+    class FSkipUntil<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {
@@ -218,7 +218,7 @@ namespace FluentStringParser
         }
     }
 
-    class FMoveBackUntil<T> : FStringTemplate<T> where T : class
+    class FMoveBackUntil<T> : FSTemplate<T> where T : class
     {
         public string Until { get; set; }
 
@@ -283,7 +283,7 @@ namespace FluentStringParser
         }
     }
 
-    class FTakeUntil<T> : FStringTemplate<T> where T : class
+    class FTakeUntil<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {
@@ -364,7 +364,7 @@ namespace FluentStringParser
         }
     }
 
-    class FTakeRest<T> : FStringTemplate<T> where T : class
+    class FTakeRest<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {
@@ -376,7 +376,7 @@ namespace FluentStringParser
         internal string Format { get; set; }
 
         [ExcludeFromCodeCoverage]
-        internal override FStringTemplate<T> Append(FStringTemplate<T> template)
+        internal override FSTemplate<T> Append(FSTemplate<T> template)
         {
             throw new InvalidOperationException("TakeRest cannot be followed by any operation");
         }
@@ -406,7 +406,7 @@ namespace FluentStringParser
         }
     }
 
-    class FElse<T> : FStringTemplate<T> where T : class
+    class FElse<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {
@@ -422,7 +422,7 @@ namespace FluentStringParser
         }
     }
 
-    class FMoveN<T> : FStringTemplate<T> where T : class
+    class FMoveN<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {
@@ -461,7 +461,7 @@ namespace FluentStringParser
         }
     }
 
-    class FTakeN<T> : FStringTemplate<T> where T : class
+    class FTakeN<T> : FSTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace
         {

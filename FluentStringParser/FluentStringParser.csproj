@@ -78,7 +78,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FStringParser.cs" />
+    <Compile Include="FSBuilder.cs" />
     <Compile Include="Directives.cs" />
     <Compile Include="ILHelpers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
