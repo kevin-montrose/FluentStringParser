@@ -113,10 +113,13 @@ namespace FluentStringParserTests
 
         static Tests()
         {
-            var firstHalf = 
+            var step1 =
                 FStringParser
-                .Until<LogRow>(" ")
-                .Take(":", "ClientIp")
+                .Until<LogRow>(" ");
+
+            var step2 = 
+                FStringParser
+                .Take<LogRow>(":", "ClientIp")
                 .Until("[")
                 .Take("]", LogProp("CreationDate"), format: "dd/MMM/yyyy:HH:mm:ss.fff")
                 .Until(" ")
@@ -135,7 +138,7 @@ namespace FluentStringParserTests
                 .Take(4, "TermState")
                 .Until(" ");
 
-            var secondHalf = 
+            var step3 = 
                 FStringParser
                 .Take<LogRow>("/", LogProp("ActConn"))
                 .Take("/", "FeConn")
@@ -162,7 +165,7 @@ namespace FluentStringParserTests
                 .Take("\"", "HttpVersion");
 
             FTemplate =
-                firstHalf.Append(secondHalf)
+                step1.Append(step2).Append(step3)
                 .Else(
                     (str, row) => 
                     { 
@@ -366,10 +369,11 @@ namespace FluentStringParserTests
         {
             public TimeSpan A { get; set; }
             public TimeSpan? B;
+            public DateTime C;
         }
 
         [TestMethod]
-        public void TimeSpan()
+        public void TimeSpanDateTime()
         {
             var simple = FStringParser.Take<TimeSpanObject>("|", typeof(TimeSpanObject).GetProperty("A")).TakeRest(typeof(TimeSpanObject).GetField("B")).Seal();
 
@@ -389,6 +393,13 @@ namespace FluentStringParserTests
 
             Assert.AreEqual(span2, obj.A);
             Assert.AreEqual(span1, obj.B.Value);
+
+            var date = FStringParser.Take<TimeSpanObject>("|", "C").Seal();
+
+            var newDate = DateTime.UtcNow;
+
+            date(newDate + "|", obj);
+            Assert.AreEqual(newDate.ToString(), obj.C.ToString());
         }
 
         class EnumObject
@@ -484,6 +495,197 @@ namespace FluentStringParserTests
             Assert.AreEqual(short.MaxValue, obj.B);
             Assert.AreEqual(int.MaxValue, obj.C);
             Assert.AreEqual(long.MaxValue, obj.D);
+        }
+
+        class FloatAndDouble
+        {
+            public float A { get; set; }
+            public double? B { get; set; }
+        }
+
+        [TestMethod]
+        public void FloatsDoubles()
+        {
+            var parse = FStringParser.Take<FloatAndDouble>(",", "A").TakeRest("B").Seal();
+
+            var rand = new Random();
+            var a = (float)rand.NextDouble();
+            var b = rand.NextDouble();
+
+            var obj = new FloatAndDouble();
+
+            parse(a + "," + b, obj);
+
+            Assert.AreEqual(a.ToString(), obj.A.ToString());
+            Assert.AreEqual(b.ToString(), obj.B.ToString());
+        }
+
+        class UnsignedObject
+        {
+            public ulong A;
+            public uint B;
+            public ushort C;
+            public byte D;
+
+            public Dictionary<int, int> Bad;
+
+            public int Hidden { get { return 0; } }
+
+            public static int Static { get; set; }
+
+            public static int StaticField;
+
+            public override string ToString()
+            {
+                return base.ToString();
+            }
+        }
+
+        [TestMethod]
+        public void Unsigned()
+        {
+            var parse =
+                FStringParser
+                .Take<UnsignedObject>(",", "A")
+                .Take(",", "B")
+                .Take(",", "C")
+                .TakeRest("D")
+                .Seal();
+
+            var obj = new UnsignedObject();
+
+            parse(ulong.MaxValue + "," + uint.MaxValue + "," + ushort.MaxValue + "," + byte.MaxValue, obj);
+
+            Assert.AreEqual(ulong.MaxValue, obj.A);
+            Assert.AreEqual(uint.MaxValue, obj.B);
+            Assert.AreEqual(ushort.MaxValue, obj.C);
+            Assert.AreEqual(byte.MaxValue, obj.D);
+        }
+
+        [TestMethod]
+        public void FixedSteps()
+        {
+            var parse =
+                FStringParser
+                .Take<UnsignedObject>(4, "A")
+                .Back(2)
+                .Take(",", "B")
+                .Skip(2)
+                .TakeRest("C")
+                .Seal();
+
+            var obj = new UnsignedObject();
+
+            parse("1234,5678", obj);
+            Assert.AreEqual((ulong)1234, obj.A);
+            Assert.AreEqual((uint)34, obj.B);
+            Assert.AreEqual((ushort)78, obj.C);
+        }
+
+        [TestMethod]
+        public void Errors()
+        {
+            var left = FStringParser.Take<UnsignedObject>("|", "A").Else((s, o) => { });
+            var right = FStringParser.Take<UnsignedObject>("|", "B").Else((s, o) => { });
+
+            try
+            {
+                left.Append(right);
+                Assert.Fail("Shouldn't be legal to append two else directives");
+            }
+            catch (Exception) {  }
+
+            left = FStringParser.Skip<UnsignedObject>(1).TakeRest("A");
+            right = FStringParser.Skip<UnsignedObject>(1).TakeRest("B");
+
+            try
+            {
+                left.Append(right);
+                Assert.Fail("Shouldn't be legal to append two take rest directives");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(5, "HelloWorld");
+                Assert.Fail("Property does not exist");
+            }
+            catch (Exception) { }
+
+            // These *shouldn't* throw exceptions
+            FStringParser.Take<UnsignedObject>("|", "A").Seal()("345212", new UnsignedObject());
+            FStringParser.Take<UnsignedObject>(4, "A").Seal()("1", new UnsignedObject());
+            FStringParser.Take<UnsignedObject>(1, "A").Take("|", "B").Seal()("asdf", new UnsignedObject());
+
+            try
+            {
+                FStringParser.Back<UnsignedObject>(-4);
+                Assert.Fail("Back shouldn't accept negatives");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Skip<UnsignedObject>(-4);
+                Assert.Fail("Skip shouldn't accept negatives");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(-4, "A");
+                Assert.Fail("Take shouldn't accept negatives");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, "Bad");
+                Assert.Fail("Bad should not be deserializable");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, typeof(string).GetMember("Length")[0]);
+                Assert.Fail("Length is not on UnsignedObject");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, typeof(UnsignedObject).GetMember("ToString")[0]);
+                Assert.Fail("ToString is not a field or property");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, "Hidden");
+                Assert.Fail("Hidden is not settable");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, "Static");
+                Assert.Fail("Statis is not an instance property");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, "StaticField");
+                Assert.Fail("StaticField is not an instance field");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(4, "A", format: "yyyy-mm-dd");
+                Assert.Fail("A is not a DateTime or TimeSpan");
+            }
+            catch (Exception) { }
         }
     }
 }

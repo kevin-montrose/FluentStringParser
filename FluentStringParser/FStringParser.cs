@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace FluentStringParser
 {
@@ -59,6 +60,7 @@ namespace FluentStringParser
             /// Returns the "call this if things go wrong" delegate
             /// to bake into the parser when Seal() is called
             /// </summary>
+            [ExcludeFromCodeCoverage]
             internal virtual Action<string, T> GetOnFailure()
             {
                 throw new NotImplementedException();
@@ -124,7 +126,6 @@ namespace FluentStringParser
             internal override Action<string, T> GetOnFailure()
             {
                 var elses = Templates.OfType<FElse<T>>();
-                if (elses.Count() > 1) throw new InvalidOperationException("Only one else can be used in a template");
 
                 Action<string, T> onFailure;
                 if (elses.Count() == 1)
@@ -311,6 +312,7 @@ namespace FluentStringParser
 
             internal string Format { get; set; }
 
+            [ExcludeFromCodeCoverage]
             internal override FStringTemplate<T> Append(FStringTemplate<T> template)
             {
                 throw new InvalidOperationException("TakeRest cannot be followed by any operation");
@@ -350,6 +352,7 @@ namespace FluentStringParser
 
             internal Action<string, T> Call { get; set; }
 
+            [ExcludeFromCodeCoverage]
             internal override void Emit(ILGenerator il)
             {
                 throw new InvalidOperationException("Just an Else cannot be emitted");

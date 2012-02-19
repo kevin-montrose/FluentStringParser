@@ -5,6 +5,7 @@ using System.Text;
 using System.Reflection.Emit;
 using System.Reflection;
 using System.Globalization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace FluentStringParser
 {
@@ -21,13 +22,6 @@ namespace FluentStringParser
             var scratchInt = il.DeclareLocal(typeof(int));
             var scratchLong = il.DeclareLocal(typeof(long));
             var scratchInt2 = il.DeclareLocal(typeof(int));
-            if (toParseLength.LocalIndex != 0) throw new InvalidOperationException();
-            if (toParseAsChar.LocalIndex != 1) throw new InvalidOperationException();
-            if (accumulator.LocalIndex != 2) throw new InvalidOperationException();
-            if (parseBuffer.LocalIndex != 3) throw new InvalidOperationException();
-            if (scratchInt.LocalIndex != 4) throw new InvalidOperationException();
-            if (scratchLong.LocalIndex != 5) throw new InvalidOperationException();
-            if (scratchInt2.LocalIndex != 6) throw new InvalidOperationException();
 
             il.Emit(OpCodes.Ldarg_0);           // *string
             il.EmitCall(OpCodes.Call, typeof(string).GetMethod("ToCharArray", new Type[0]), null);  // *char[]
@@ -54,15 +48,40 @@ namespace FluentStringParser
             il.Emit(OpCodes.Ldc_I4_0);          // 0
             il.Emit(OpCodes.Stloc, scratchInt2);// --empty--
 
+            LocalBuilder scratch = null;
             if (neededScratchSpace > 0)
             {
-                var scratch = il.DeclareLocal(typeof(char[]));
-                if (scratch.LocalIndex != 7) throw new InvalidOperationException();
+                scratch = il.DeclareLocal(typeof(char[]));
 
                 il.Emit(OpCodes.Ldc_I4, neededScratchSpace);  // NeededStringScrathSpace
                 il.Emit(OpCodes.Newarr, typeof(char));              // *char[]
                 il.Emit(OpCodes.Stloc, scratch);                    // --empty--
             }
+
+            // Break this out for code coverage purposes
+            _InitializeFailureCheck(toParseLength, toParseAsChar, accumulator, parseBuffer, scratchInt, scratchLong, scratchInt2, scratch);
+        }
+
+        [ExcludeFromCodeCoverage]
+        private static void _InitializeFailureCheck(
+            LocalBuilder toParseLength, 
+            LocalBuilder toParseAsChar,
+            LocalBuilder accumulator,
+            LocalBuilder parseBuffer,
+            LocalBuilder scratchInt,
+            LocalBuilder scratchLong,
+            LocalBuilder scratchInt2, 
+            LocalBuilder scratch)
+        {
+            if (toParseLength.LocalIndex != 0) throw new InvalidOperationException();
+            if (toParseAsChar.LocalIndex != 1) throw new InvalidOperationException();
+            if (accumulator.LocalIndex != 2) throw new InvalidOperationException();
+            if (parseBuffer.LocalIndex != 3) throw new InvalidOperationException();
+            if (scratchInt.LocalIndex != 4) throw new InvalidOperationException();
+            if (scratchLong.LocalIndex != 5) throw new InvalidOperationException();
+            if (scratchInt2.LocalIndex != 6) throw new InvalidOperationException();
+
+            if (scratch != null && scratch.LocalIndex != 7) throw new InvalidOperationException();
         }
 
         internal static void LoadObjectBeingBuild(this ILGenerator il)
@@ -550,6 +569,13 @@ namespace FluentStringParser
                 return;
             }
 
+            // Break this out for code coverage purposes
+            _ConvertToFromLongFailure(il, type);
+        }
+
+        [ExcludeFromCodeCoverage]
+        private static void _ConvertToFromLongFailure(ILGenerator il, Type type)
+        {
             if (type != typeof(long) && type != typeof(ulong))
             {
                 throw new InvalidOperationException("Unexpected type to coerce from long, " + type.Name);

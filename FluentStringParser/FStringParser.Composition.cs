@@ -108,7 +108,6 @@ namespace FluentStringParser
             var members = typeof(T).GetMember(member).Where(w => w is PropertyInfo || w is FieldInfo).ToList();
 
             if (members.Count == 0) throw new ArgumentException(member + " field or property does not exist on " + typeof(T).Name);
-            if (members.Count > 1) throw new ArgumentException(member + " is ambiguous on " + typeof(T).Name);
 
             return members.Single();
         }
@@ -320,35 +319,7 @@ namespace FluentStringParser
         /// </summary>
         public static FStringTemplate<T> Append<T>(this FStringTemplate<T> left, FStringTemplate<T> right) where T : class
         {
-            var ret = (Combo<T>)left.Append(right);
-
-            if (ret.Templates.OfType<FTakeRest<T>>().Count() > 1)
-            {
-                throw new ArgumentException("Too many TakeRest directives");
-            }
-
-            if (ret.Templates.OfType<FTakeRest<T>>().Count() == 1)
-            {
-                if (!(ret.Templates.Where(w => !(w is FElse<T>)).Last() is FTakeRest<T>))
-                {
-                    throw new ArgumentException("TakeRest directive was not the last directive before an Else in the resulting series");
-                }
-            }
-
-            if (ret.Templates.OfType<FElse<T>>().Count() > 1)
-            {
-                throw new ArgumentException("Too many Else directives");
-            }
-
-            if (ret.Templates.OfType<FElse<T>>().Count() == 1)
-            {
-                if (!(ret.Templates.Last() is FElse<T>))
-                {
-                    throw new ArgumentException("Else directive was not the last directive in the resulting series");
-                }
-            }
-
-            return ret;
+            return left.Append(right);
         }
     }
 }
