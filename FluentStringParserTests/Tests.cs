@@ -9,6 +9,7 @@ using System.IO;
 using System.Globalization;
 using FluentStringParser;
 using System.Diagnostics;
+using System.Threading;
 
 namespace FluentStringParserTests
 {
@@ -736,6 +737,128 @@ namespace FluentStringParserTests
 
             Assert.AreEqual("l", obj.Raw1);
             Assert.AreEqual("world", obj.Raw2);
+        }
+
+        class PerfObject
+        {
+            public int A;
+            public int B;
+            public int C;
+            public int D;
+        }
+
+        [TestMethod]
+        public void SimplePerf()
+        {
+            var regex = new Regex(@"(\d+),(\d+),(\d+),(\d+)", RegexOptions.Compiled);
+            var parserTask =
+                FSBuilder
+                    .Take<PerfObject>(",", "A")
+                    .Take(",", "B")
+                    .Take(",", "C")
+                    .TakeRest("D")
+                    .Seal();
+
+            Action ghettoGC = () => { GC.Collect(); Thread.Sleep(100); };
+
+            Action<string, PerfObject> regexTask =
+                delegate(string str, PerfObject obj)
+                {
+                    var matches = regex.Match(str);
+
+                    obj.A = int.Parse(matches.Groups[1].Value);
+                    obj.B = int.Parse(matches.Groups[2].Value);
+                    obj.C = int.Parse(matches.Groups[3].Value);
+                    obj.D = int.Parse(matches.Groups[4].Value);
+                };
+
+            Action<string, PerfObject> handTask =
+                delegate(string str, PerfObject obj)
+                {
+                    int a = str.IndexOf(',');
+                    obj.A = int.Parse(str.Substring(0, a));
+
+                    int b = str.IndexOf(',', a + 1);
+                    obj.B = int.Parse(str.Substring(a + 1, b - (a + 1)));
+
+                    int c = str.IndexOf(',', b + 1);
+                    obj.C = int.Parse(str.Substring(b + 1, c - (b + 1)));
+
+                    obj.D = int.Parse(str.Substring(c + 1, str.Length - (c + 1)));
+                };
+
+            var rand = new Random();
+            var data = new List<string>();
+            for (int i = 0; i < 1000000; i++)
+            {
+                data.Add(rand.Next() + "," + rand.Next() + "," + rand.Next() + "," + rand.Next());
+            }
+
+            // Equivalence check
+            foreach (var str in data)
+            {
+                var o1 = new PerfObject();
+                var o2 = new PerfObject();
+                var o3 = new PerfObject();
+
+                parserTask(str, o1);
+                regexTask(str, o2);
+                handTask(str, o3);
+
+                if (o1.A != o2.A || o2.A != o3.A) throw new Exception();
+                if (o1.B != o2.B || o2.B != o3.B) throw new Exception();
+                if (o1.C != o2.C || o2.C != o3.C) throw new Exception();
+                if (o1.D != o2.D || o2.D != o3.D) throw new Exception();
+            }
+
+            var results = new Dictionary<int, List<long>>();
+            results[0] = new List<long>();   // regex
+            results[1] = new List<long>();   // hand
+            results[2] = new List<long>();   // parser
+
+            var timer = new Stopwatch();
+            var speedObj = new PerfObject();
+
+            for (int i = 0; i < 5; i++)
+            {
+                ghettoGC();
+
+                timer.Restart();
+                foreach (var str in data)
+                {
+                    regexTask(str, speedObj);
+                }
+                timer.Stop();
+
+                results[0].Add(timer.ElapsedMilliseconds);
+                ghettoGC();
+
+                timer.Restart();
+                foreach (var str in data)
+                {
+                    handTask(str, speedObj);
+                }
+                timer.Stop();
+
+                results[1].Add(timer.ElapsedMilliseconds);
+                ghettoGC();
+
+                timer.Restart();
+                foreach (var str in data)
+                {
+                    parserTask(str, speedObj);
+                }
+                timer.Stop();
+
+                results[2].Add(timer.ElapsedMilliseconds);
+            }
+
+            var medianRegex = results[0].OrderBy(o => o).ElementAt(results[0].Count / 2);
+            var medianHand = results[1].OrderBy(o => o).ElementAt(results[1].Count / 2);
+            var medianParser = results[2].OrderBy(o => o).ElementAt(results[2].Count / 2);
+
+            Assert.IsTrue(medianRegex > medianHand);
+            Assert.IsTrue(medianHand > medianParser);
         }
     }
 }
