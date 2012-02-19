@@ -704,6 +704,13 @@ namespace FluentStringParserTests
                 Assert.Fail("TimeSpan format string is invalid");
             }
             catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>("", "TS");
+                Assert.Fail("An empty until is invalid");
+            }
+            catch (Exception) { }
         }
 
         class StringObject

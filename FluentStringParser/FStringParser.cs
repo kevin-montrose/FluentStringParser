@@ -95,6 +95,14 @@ namespace FluentStringParser
             }
         }
 
+        private static void ValidateNeedle(string val, string name)
+        {
+            if (string.IsNullOrEmpty(val))
+            {
+                throw new ArgumentException(name + " cannot be null or empty");
+            }
+        }
+
         /// <summary>
         /// Advance in the string until <paramref name="needle"/> is encountered.
         /// 
@@ -104,6 +112,8 @@ namespace FluentStringParser
         /// </summary>
         public static FStringTemplate<T> Until<T>(string needle) where T : class
         {
+            ValidateNeedle(needle, "needle");
+
             return new FSkipUntil<T> { Until = needle };
         }
 
@@ -156,6 +166,7 @@ namespace FluentStringParser
         public static FStringTemplate<T> Take<T>(string until, MemberInfo member, string format = null) where T : class
         {
             ValidateMember<T>(member, format);
+            ValidateNeedle(until, "until");
 
             return new FTakeUntil<T> { Until = until, Into = member, Format = format };
         }
@@ -288,6 +299,8 @@ namespace FluentStringParser
         /// </summary>
         public static FStringTemplate<T> Back<T>(this FStringTemplate<T> template, string until) where T : class
         {
+            ValidateNeedle(until, "until");
+
             return template.Append(new FMoveBackUntil<T> { Until = until });
         }
 
