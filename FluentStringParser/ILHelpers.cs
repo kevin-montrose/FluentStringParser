@@ -156,7 +156,25 @@ namespace FluentStringParser
             il.LoadAccumulator();      // accumulator
             il.Emit(OpCodes.Ldc_I4_1); // 1 accumulator
             il.Emit(OpCodes.Add);      // accumuatlor++
-            il.Emit(OpCodes.Stloc_2);  // --empty--
+            il.StoreAccumulator();     // --empty--
+        }
+
+        /// <summary>
+        /// Places the character at accumulator in toParse
+        /// on the stack
+        /// </summary>
+        internal static void LoadFromToParseAtAccumulator(this ILGenerator il, int? offset = null)
+        {
+            il.LoadToParse();           // *char[]
+            il.LoadAccumulator();       // accumulator *char[]
+
+            if (offset.HasValue)
+            {
+                il.Emit(OpCodes.Ldc_I4, offset.Value);  // offset accumulator *char[]
+                il.Emit(OpCodes.Add);                   // <accumulator + offset> *char[]
+            }
+
+            il.Emit(OpCodes.Ldelem_I2); // char
         }
 
         /// <summary>
@@ -169,11 +187,8 @@ namespace FluentStringParser
         {
             for (int i = 1; i < toCheck.Length; i++)
             {
-                il.LoadToParse();           // <*char[] toParse>
-                il.LoadAccumulator();       // accumulator <*char[] toParse>
-                il.Emit(OpCodes.Ldc_I4, i); // i accumulator <*char[] toParse>
-                il.Emit(OpCodes.Add);       // <accumulator+i> <*char[] toParse>
-                il.Emit(OpCodes.Ldelem_I2); // char
+                il.LoadFromToParseAtAccumulator(offset: i);
+
                 il.Emit(OpCodes.Ldc_I4, toCheck[i]); // char char
                 il.Emit(OpCodes.Bne_Un, resume);     // --empty--
             }

@@ -179,9 +179,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator
             il.Emit(OpCodes.Beq_S, failure);            // --empty--
 
-            il.LoadToParse();           // *char[]
-            il.LoadAccumulator();       // accumulator *char[]
-            il.Emit(OpCodes.Ldelem_I2); // char
+            il.LoadFromToParseAtAccumulator();  // char
 
             il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char
             il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
@@ -233,9 +231,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Ldc_I4_0);      // 0 accumulator
             il.Emit(OpCodes.Blt, failure);  // --empty--
 
-            il.LoadToParse();           // *char[]
-            il.LoadAccumulator();       // accumulator *char[]
-            il.Emit(OpCodes.Ldelem_I2); // char
+            il.LoadFromToParseAtAccumulator();  // char
             il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char
             il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
 
@@ -284,9 +280,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator start *built
             il.Emit(OpCodes.Beq, failure);              // start *built
 
-            il.LoadToParse();           // *char[] start *built
-            il.LoadAccumulator();       // accumulator *char[] start *built
-            il.Emit(OpCodes.Ldelem_I2); // char start *built
+            il.LoadFromToParseAtAccumulator();  // char start *built
 
             il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char start *built
 
