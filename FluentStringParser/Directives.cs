@@ -218,6 +218,71 @@ namespace FluentStringParser
         }
     }
 
+    class FMoveBackUntil<T> : FStringTemplate<T> where T : class
+    {
+        public string Until { get; set; }
+
+        internal override int NeededStringScratchSpace
+        {
+            get { return Until.Length; }
+        }
+
+        internal override void Emit(ILGenerator il)
+        {
+            var failure = il.DefineLabel();
+            var finished = il.DefineLabel();
+            var forLoop = il.DefineLabel();
+            var possibleMatch = il.DefineLabel();
+            var resume = il.DefineLabel();
+
+            il.SetScratchSpace(Until);
+
+            il.LoadToParseLength();                 // toParse.Length
+            il.LoadAccumulator();                   // accumulator toParse.Length
+            il.Emit(OpCodes.Sub);                   // <toParse.Length - accumulator>
+            il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length <toParse.Length - accumulator>
+            il.Emit(OpCodes.Bge_S, forLoop);        // --empty--
+
+            // Set the accumulator to toParse.Length - Until.Length so we won't access past the buffer
+            il.LoadToParseLength();     // toParse.Length
+            il.LoadAccumulator();       // accumulator toParse.Length
+            il.Emit(OpCodes.Sub);       // toParse.Length - accumulator
+            il.StoreAccumulator();      // --empty--=
+
+            // Start of the for loop
+            il.MarkLabel(forLoop);          // --empty--
+            il.LoadAccumulator();           // accumulator
+            il.Emit(OpCodes.Ldc_I4_0);      // 0 accumulator
+            il.Emit(OpCodes.Blt, failure);  // --empty--
+
+            il.LoadToParse();           // *char[]
+            il.LoadAccumulator();       // accumulator *char[]
+            il.Emit(OpCodes.Ldelem_I2); // char
+            il.LoadScratchSpace();      // *char[] char
+            il.Emit(OpCodes.Ldc_I4_0);  // 0 *char[] char
+            il.Emit(OpCodes.Ldelem_I2); // char char
+            il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
+
+            il.MarkLabel(resume);           // --empty--
+            il.LoadAccumulator();           // accumulator
+            il.Emit(OpCodes.Ldc_I4_M1);     // -1 accumulator
+            il.Emit(OpCodes.Add);           // <accumulator-1>
+            il.StoreAccumulator();          // --empty--
+            il.Emit(OpCodes.Br, forLoop);   // --empty--
+
+            // branch here when we've got a possible match to check
+            il.MarkLabel(possibleMatch);
+            il.CheckForMatchFromOne(Until, resume, finished);
+
+            // branch here when we know we've failed
+            il.MarkLabel(failure);          // --empty--
+            il.CallFailureAndReturn<T>(0);  // --empty--
+
+            // branch here when we've got a match
+            il.MarkLabel(finished);         // --empty--
+        }
+    }
+
     class FTakeUntil<T> : FStringTemplate<T> where T : class
     {
         internal override int NeededStringScratchSpace

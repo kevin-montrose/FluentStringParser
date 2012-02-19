@@ -280,6 +280,18 @@ namespace FluentStringParser
         }
 
         /// <summary>
+        /// Backtracks until <paramref name="until"/> is encountered in the string.
+        /// 
+        /// The current index will be placed after the found string.
+        /// 
+        /// If <paramref name="until"/> is not found, the directive fails.
+        /// </summary>
+        public static FStringTemplate<T> Back<T>(this FStringTemplate<T> template, string until) where T : class
+        {
+            return template.Append(new FMoveBackUntil<T> { Until = until });
+        }
+
+        /// <summary>
         /// Take a specific number of characters from the input string, parse them, and put
         /// them into the given property on T.
         /// 

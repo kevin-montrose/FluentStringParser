@@ -705,5 +705,30 @@ namespace FluentStringParserTests
             }
             catch (Exception) { }
         }
+
+        class StringObject
+        {
+            public string Raw1 { get; set; }
+            public string Raw2 { get; set; }
+        }
+
+        [TestMethod]
+        public void BackUntil()
+        {
+            var parse =
+                FStringParser
+                    .Skip<StringObject>(6)
+                    .Take(1, "Raw1")
+                    .Back("hello")
+                    .TakeRest("Raw2")
+                    .Seal();
+
+            var obj = new StringObject();
+
+            parse("123helloworld", obj);
+
+            Assert.AreEqual("l", obj.Raw1);
+            Assert.AreEqual("world", obj.Raw2);
+        }
     }
 }
