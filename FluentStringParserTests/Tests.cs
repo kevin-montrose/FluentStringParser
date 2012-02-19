@@ -535,6 +535,10 @@ namespace FluentStringParserTests
 
             public static int StaticField;
 
+            public DateTime DT { get; set; }
+
+            public TimeSpan TS { get; set; }
+
             public override string ToString()
             {
                 return base.ToString();
@@ -684,6 +688,20 @@ namespace FluentStringParserTests
             {
                 FStringParser.Take<UnsignedObject>(4, "A", format: "yyyy-mm-dd");
                 Assert.Fail("A is not a DateTime or TimeSpan");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(",", "DT", format: "asdf");
+                Assert.Fail("DateTime format string is invalid");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FStringParser.Take<UnsignedObject>(",", "TS", format: "asdf");
+                Assert.Fail("TimeSpan format string is invalid");
             }
             catch (Exception) { }
         }

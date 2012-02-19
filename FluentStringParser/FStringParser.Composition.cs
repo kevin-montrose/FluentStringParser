@@ -76,6 +76,22 @@ namespace FluentStringParser
                 {
                     throw new ArgumentException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
                 }
+
+                try
+                {
+                    if (t == typeof(DateTime) || t == typeof(DateTime?))
+                    {
+                        DateTime.UtcNow.ToString(format);
+                    }
+                    else
+                    {
+                        TimeSpan.FromSeconds(1).ToString(format);
+                    }
+                }
+                catch (FormatException f)
+                {
+                    throw new ArgumentException("format [" + format + "] is invalid, " + f.Message, f);
+                }
             }
         }
 
