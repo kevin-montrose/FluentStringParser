@@ -1226,5 +1226,24 @@ namespace FluentStringParserTests
             Assert.IsTrue(obj.B);
             Assert.IsFalse(obj.C.Value);
         }
+
+        [TestMethod]
+        public void NullableSkip()
+        {
+            var parser =
+                FSBuilder
+                .Take<BoolObject>(",", "A")
+                .Take(",", "C")
+                .TakeRest("B")
+                .Seal();
+
+            var obj = new BoolObject();
+
+            parser("True,,false", obj);
+
+            Assert.IsTrue(obj.A);
+            Assert.IsFalse(obj.B);
+            Assert.IsNull(obj.C);
+        }
     }
 }

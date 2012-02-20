@@ -23,9 +23,9 @@ and only primitive number types, DateTimes, TimeSpans, and strings
 can be parsed at this time.  DateTimes and TimeSpans can have
 custom format strings specified for parsing them.
 
-Nullable number types, DateTimes, and TimeSpans can be set but
-after a successful parsing they will always have values.  A bool?
-will always be set to true or false, for example, never null.
+If a directive select an empty string, the corresponding field or
+property will not be set.  Note that it will not be cleared
+either.
 
 Back, Else, and TakeRest are available only as the second or later
 directives in a parser.  Only one of each may appear in a 
