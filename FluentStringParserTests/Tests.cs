@@ -1201,5 +1201,30 @@ namespace FluentStringParserTests
             Assert.IsTrue(medianRegex > medianHand, "Regex faster than hand rolled; invalid test");
             Assert.IsTrue(medianHand > medianParser, "Hand faster than generated; bad parser");
         }
+
+        class BoolObject
+        {
+            public bool A { get; set; }
+            public bool B;
+            public bool? C;
+        }
+
+        [TestMethod]
+        public void Bools()
+        {
+            var parser =
+                FSBuilder
+                    .Take<BoolObject>(",", "A")
+                    .Take(",", "B")
+                    .TakeRest("C")
+                    .Seal();
+
+            var obj = new BoolObject();
+
+            parser("True,1,false", obj);
+            Assert.IsTrue(obj.A);
+            Assert.IsTrue(obj.B);
+            Assert.IsFalse(obj.C.Value);
+        }
     }
 }

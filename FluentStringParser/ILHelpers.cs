@@ -241,27 +241,30 @@ namespace FluentStringParser
         private static void CheckCharacter(this ILGenerator il, int loc, char against, Label ifNot)
         {
             var fallThrough = il.DefineLabel();
+            var finished = il.DefineLabel();
 
             //Stack: *char[]
             
             // Check upper case version of against
-            il.Emit(OpCodes.Dup);                   // *char[] *char[]
+            il.Emit(OpCodes.Dup);
             il.Emit(OpCodes.Ldc_I4, loc);           // loc *char[] *char[]
             il.Emit(OpCodes.Ldelem, typeof(char));  // char *char[]
-            il.Emit(OpCodes.Ldc_I4, char.ToUpperInvariant(against));       // char char *char[]
-            il.Emit(OpCodes.Beq_S, fallThrough);    // *char[]
+            il.Emit(OpCodes.Dup);                   // char char *char[]
+            il.Emit(OpCodes.Ldc_I4, char.ToUpperInvariant(against));       // char char char *char[]
+            il.Emit(OpCodes.Beq_S, fallThrough);    // char *char[]
 
             // Check lower case
-            il.Emit(OpCodes.Dup);                   // *char[] *char[]
-            il.Emit(OpCodes.Ldc_I4, loc);           // loc *char[] *char[]
-            il.Emit(OpCodes.Ldelem, typeof(char));  // char *char[]
             il.Emit(OpCodes.Ldc_I4, char.ToLowerInvariant(against));       // char char *char[]
-            il.Emit(OpCodes.Beq_S, fallThrough);    // *char[]
+            il.Emit(OpCodes.Beq_S, finished);       // *char[]
 
             il.Emit(OpCodes.Br, ifNot);             // *char[]
 
-            // Branch here if we got a hit
-            il.MarkLabel(fallThrough);              // *char[]
+            // Branch here if we got a hit, and need to do some cleanup
+            il.MarkLabel(fallThrough);              // char *char[]
+            il.Emit(OpCodes.Pop);                   // *char
+
+            // Branch here if we got a hi
+            il.MarkLabel(finished);                 // *char
         }
 
         /// <summary>
