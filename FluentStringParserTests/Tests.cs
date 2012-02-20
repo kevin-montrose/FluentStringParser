@@ -1193,6 +1193,11 @@ namespace FluentStringParserTests
             var medianHand = results[1].OrderBy(o => o).ElementAt(results[1].Count / 2);
             var medianParser = results[2].OrderBy(o => o).ElementAt(results[2].Count / 2);
 
+            // before pointer attempts
+            // regex: 9591
+            // parser: 1499
+            // hand: 410
+
             Assert.IsTrue(medianRegex > medianHand, "Regex faster than hand rolled; invalid test");
             Assert.IsTrue(medianHand > medianParser, "Hand faster than generated; bad parser");
         }

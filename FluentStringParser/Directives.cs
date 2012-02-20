@@ -301,8 +301,6 @@ namespace FluentStringParser
             //-- branch here when we've actually had success matching --//
             il.MarkLabel(finished);                 // start *built
 
-            var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
-
             il.StoreScratchInt();                   // *built
             il.LoadToParse();                       // <*char[] toParse> *built
             il.LoadScratchInt();                    // start <*char[] toParse> *built
@@ -315,7 +313,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Sub);                   // <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
             il.Emit(OpCodes.Dup);                   // <accumulator-start-Until.Length> <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
             il.StoreScratchInt();                   // <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Call, copyArray);       // *built
+            il.CopyArray();                         // *built
             il.LoadParseBuffer();                   // <*char[] toParse> *built
             il.LoadScratchInt();                    // length <*char[] toParse> *built
             il.ParseAndSet(Into, Format);
@@ -355,9 +353,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Dup);       // <toParseLength - start> <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
             il.StoreScratchInt();       // <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
 
-            var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
-
-            il.Emit(OpCodes.Call, copyArray);   // *built
+            il.CopyArray();                     // *built
             il.LoadParseBuffer();               // *char[] *built
             il.LoadScratchInt();                // length *char[] *built
             il.ParseAndSet(Into, Format);
@@ -426,14 +422,12 @@ namespace FluentStringParser
             il.LoadToParseLength();         // toParse.Length <accumulator+N>
             il.Emit(OpCodes.Bge, failure);  // --empty--
 
-            var copyArray = typeof(Array).GetMethod("Copy", new[] { typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int) });
-
             il.LoadToParse();                 // <char[]* toParse>
             il.LoadAccumulator();             // accumulator <char[]* toParse>
             il.LoadParseBuffer();             // <char[]* parseBuffer> acccumulator <char[]* toParse>
             il.Emit(OpCodes.Ldc_I4_0);        // 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
             il.Emit(OpCodes.Ldc_I4, N);       // N 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
-            il.Emit(OpCodes.Call, copyArray); // --empty--
+            il.CopyArray();                   // --empty--
 
             il.LoadObjectBeingBuild();        // *built
             il.LoadParseBuffer();             // <char[]* parseBuffer> *built

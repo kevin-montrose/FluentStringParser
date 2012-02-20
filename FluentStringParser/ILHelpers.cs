@@ -160,6 +160,24 @@ namespace FluentStringParser
         }
 
         /// <summary>
+        /// Expected Stack 
+        ///  - length toIndex toArray fromIndex fromArray
+        ///  
+        /// where arrays are the same types as toParse and toParseBuffer
+        /// 
+        /// Leaves the stack
+        ///  - --empty--
+        /// </summary>
+        internal static void CopyArray(this ILGenerator il)
+        {
+            var array = typeof(Array);
+            var copyArray = array.GetMethod("Copy", new[] { array, typeof(int), array, typeof(int), typeof(int) });
+
+            // stack starts                   // length toIndex toArray fromIndex fromArray
+            il.Emit(OpCodes.Call, copyArray); // empty
+        }
+
+        /// <summary>
         /// Places the character at accumulator in toParse
         /// on the stack
         /// </summary>
