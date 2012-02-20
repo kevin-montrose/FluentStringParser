@@ -802,5 +802,56 @@ namespace FluentStringParser
 
             il.MarkLabel(finished);
         }
+
+        internal static void NewParseImpl(ILGenerator il, Type memberType, string dateFormat)
+        {
+            // length start char[] *built
+
+            if (memberType == typeof(string))
+            {
+                var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
+
+                il.Emit(OpCodes.Newobj, strConst);  // string *built
+
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Call this to emit IL that will parse whatever's on the stack into the appropriate type
+        /// for member, and set member to it (on T, which is in arg 1).
+        /// 
+        /// Expects stack of :
+        /// - length start char[] *built 
+        /// 
+        /// The stack is empty at the end, and scratch integers may be smashed.
+        /// </summary>
+        /// <param name="il"></param>
+        /// <param name="member"></param>
+        /// <param name="dateFormat"></param>
+        internal static void NewParseAndSet(this ILGenerator il, MemberInfo member, string dateFormat)
+        {
+            var memberType = 
+                member is PropertyInfo ?
+                    ((PropertyInfo)member).PropertyType :
+                    ((FieldInfo)member).FieldType;
+            memberType = Nullable.GetUnderlyingType(memberType) ?? memberType;
+
+            // Stack Starts
+            // - length start char[] *built
+
+            NewParseImpl(il, memberType, dateFormat);
+
+            if (member is FieldInfo)
+            {
+                var asField = (FieldInfo)member;
+                il.Emit(OpCodes.Stfld, asField);
+            }
+            else
+            {
+                var asProp = (PropertyInfo)member;
+                il.Emit(OpCodes.Call, asProp.GetSetMethod());
+            }
+        }
     }
 }

@@ -299,9 +299,19 @@ namespace FluentStringParser
             il.CallFailureAndReturn<T>(2);
 
             //-- branch here when we've actually had success matching --//
-            il.MarkLabel(finished);                 // start *built
+            il.MarkLabel(finished);             // start *built
 
-            il.StoreScratchInt();                   // *built
+            il.StoreScratchInt();                  // *built
+            il.LoadToParse();                      // char[] *built
+            il.LoadScratchInt();                   // start char[] *built
+            il.LoadAccumulator();                  // accumulator start char[] *built
+            il.LoadScratchInt();                   // start accumulator start char[] *built
+            il.Emit(OpCodes.Sub);                  // <accumulator - start> start char[] *built
+            il.Emit(OpCodes.Ldc_I4, Until.Length); // Until.Length <accumulator - start> start char[] *built
+            il.Emit(OpCodes.Sub);                  // <accumulator-start-Until.Length> start char[] *built
+            il.NewParseAndSet(Into, Format);       // --empty--
+
+            /*il.StoreScratchInt();                   // *built
             il.LoadToParse();                       // <*char[] toParse> *built
             il.LoadScratchInt();                    // start <*char[] toParse> *built
             il.LoadParseBuffer();                   // <*char[] parseBuffer> start <*char[] toParse> *built
@@ -316,7 +326,7 @@ namespace FluentStringParser
             il.CopyArray();                         // *built
             il.LoadParseBuffer();                   // <*char[] toParse> *built
             il.LoadScratchInt();                    // length <*char[] toParse> *built
-            il.ParseAndSet(Into, Format);
+            il.ParseAndSet(Into, Format);*/
         }
 
         internal override Action<string, T> GetOnFailure()

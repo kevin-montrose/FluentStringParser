@@ -112,6 +112,8 @@ namespace FluentStringParserTests
 
         static Tests()
         {
+            return;
+
             var step1 =
                 FSBuilder
                 .Until<LogRow>(" ");
@@ -1244,6 +1246,25 @@ namespace FluentStringParserTests
             Assert.IsTrue(obj.A);
             Assert.IsFalse(obj.B);
             Assert.IsNull(obj.C);
+        }
+
+        class Temp
+        {
+            public string A { get; set; }
+        }
+
+        [TestMethod]
+        public void TempTest()
+        {
+            var p =
+                FSBuilder
+                    .Take<Temp>(",", "A")
+                    .Seal();
+
+            var obj = new Temp();
+            p("abcdef,", obj);
+
+            Assert.AreEqual("abcdef", obj.A);
         }
     }
 }
