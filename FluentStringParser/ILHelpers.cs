@@ -969,6 +969,17 @@ namespace FluentStringParser
 
                 return;
             }
+
+            // Deals with decimal numbers (floats, doubles, and so on)
+            var parseMethodCall = ParseMethodFor(memberType);
+            if (parseMethodCall != null)
+            {
+                il.Emit(OpCodes.Newobj, strConst);      // string *built
+                il.Emit(OpCodes.Call, parseMethodCall); // value *built
+                return;
+            }
+
+
         }
 
         /// <summary>
