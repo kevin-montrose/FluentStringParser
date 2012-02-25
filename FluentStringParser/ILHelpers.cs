@@ -906,7 +906,131 @@ namespace FluentStringParser
 
             il.MarkLabel(finished);
         }
-        
+
+        /// <summary>
+        /// Stack is expected to be
+        ///   - length start char[]
+        /// 
+        /// for easy coercion into a string if needed
+        /// 
+        /// results in stack of
+        ///   - value
+        /// 
+        /// The emitted code may trash the scratch numbers
+        /// </summary>
+        private static void NewParseEnum(ILGenerator il, Type enumType)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Stack is expected to be
+        ///   - char[]
+        ///   
+        /// With scratch int #2 = start, and scratch int #3 = stop, and scratch long = 0
+        /// 
+        /// Stack ends as
+        ///   - value
+        /// </summary>
+        private static void NewParseLongImpl(ILGenerator il)
+        {
+            var notNumber = il.DefineLabel();
+            var loop = il.DefineLabel();
+            var finished = il.DefineLabel();
+
+            // char[]
+            il.MarkLabel(loop);
+            il.Emit(OpCodes.Dup);                   // char[] char[]
+            il.LoadScratchInt2();                   // i char[] char[]
+            il.Emit(OpCodes.Ldelem, typeof(char));  // char char[]
+            il.Emit(OpCodes.Ldc_I4, '0');           // '0' char char[]
+            il.Emit(OpCodes.Sub);                   // <char-'0'> char[]
+            il.Emit(OpCodes.Dup);                   // <char-'0'> <char-'0'> char[]
+            il.Emit(OpCodes.Ldc_I4_0);              // 0 <char-'0'> <char-'0'> char[]
+            il.Emit(OpCodes.Blt, notNumber);        // <char-'0'> char[]
+
+            il.Emit(OpCodes.Dup);           // <char-'0'> <char-'0'> char[]
+            il.Emit(OpCodes.Ldc_I4, 9);     // 9 <char-'0'> <char-'0'> char[]
+            il.Emit(OpCodes.Bgt, notNumber);// <char-'0'> char[]
+
+            il.Emit(OpCodes.Conv_I8);       // <char-'0'> char[]
+            il.LoadScratchLong();           // total <char-'0'> char[]
+            il.Emit(OpCodes.Ldc_I4, 10);    // 10 total <char-'0'> char[]
+            il.Emit(OpCodes.Conv_I8);       // 10 total <char-'0'> char[]
+            il.Emit(OpCodes.Mul_Ovf_Un);    // <total*10> <char-'0'> char[]
+            il.Emit(OpCodes.Add_Ovf_Un);    // <total*10+(char-'0')> char[]
+            il.StoreScratchLong();          // char[]
+            il.LoadScratchInt2();           // i char[]
+            il.Emit(OpCodes.Ldc_I4_1);      // 1 i  char[]
+            il.Emit(OpCodes.Add);           // <i+1> char[]
+            il.StoreScratchInt2();          // char[]
+            il.LoadScratchInt2();           // <i+1> char[]
+            il.LoadScratchInt();            // stop <i+1> char[]
+            il.Emit(OpCodes.Beq, finished); // char[]
+
+            il.Emit(OpCodes.Br, loop);      // char[]
+
+            il.MarkLabel(notNumber);    // <char-'0'> char[]
+            il.Emit(OpCodes.Pop);       // char[]
+            il.Emit(OpCodes.Pop);       // --empty--
+            il.Emit(OpCodes.Newobj, typeof(Exception).GetConstructor(new Type[0])); // exception
+            il.Emit(OpCodes.Throw);     // --empty--
+
+            il.MarkLabel(finished);     // char[]
+            il.Emit(OpCodes.Pop);       // --empty--
+            il.LoadScratchLong();       // value
+        }
+
+        /// <summary>
+        /// Stack is expected to be
+        ///   - length start char[]
+        ///   
+        /// results in a stack of
+        ///   - value
+        ///   
+        /// Where value is an int64;
+        /// 
+        /// The emitted code may trash the scratch numbers
+        /// </summary>
+        private static void NewParseLong(ILGenerator il)
+        {
+            var isNegative = il.DefineLabel();
+            var finished = il.DefineLabel();
+
+            // length start char[]
+
+            il.StoreScratchInt();   // start char[]
+            il.StoreScratchInt2();  // char[]
+            il.LoadScratchInt();    // length char[]
+            il.LoadScratchInt2();   // start length char[]
+            il.Emit(OpCodes.Add);   // <length+start> char[]
+            il.StoreScratchInt();   // char[]
+
+            il.Emit(OpCodes.Ldc_I4_0);  // 0 char[]
+            il.Emit(OpCodes.Conv_I8);   // 0 char[]
+            il.StoreScratchLong();      // char[]
+
+            il.Emit(OpCodes.Dup);                   // char[] char[]
+            il.LoadScratchInt2();                   // i char[] char[]
+            il.Emit(OpCodes.Ldelem, typeof(char));  // char char[]
+
+            il.Emit(OpCodes.Ldc_I4, '-');       // '-' char char[]
+            il.Emit(OpCodes.Beq, isNegative);   // char[]
+
+            NewParseLongImpl(il);               // char[]
+            il.Emit(OpCodes.Br, finished);      // value
+
+            il.MarkLabel(isNegative);           // char[]
+            il.LoadScratchInt2();               // i char[]
+            il.Emit(OpCodes.Ldc_I4_1);          // 1 i char[]
+            il.Emit(OpCodes.Add);               // <i+1> char[]
+            il.StoreScratchInt2();              // char[]
+            NewParseLongImpl(il);               // value
+            il.Emit(OpCodes.Neg);               // value
+
+            il.MarkLabel(finished);
+        }
+
         internal static void NewParseImpl(ILGenerator il, Type memberType, string format)
         {
             var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
@@ -970,6 +1094,12 @@ namespace FluentStringParser
                 return;
             }
 
+            if (memberType.IsEnum)
+            {
+                NewParseEnum(il, memberType);
+                return;
+            }
+
             // Deals with decimal numbers (floats, doubles, and so on)
             var parseMethodCall = ParseMethodFor(memberType);
             if (parseMethodCall != null)
@@ -979,7 +1109,8 @@ namespace FluentStringParser
                 return;
             }
 
-
+            NewParseLong(il);
+            il.ConvertToFromLong(memberType);
         }
 
         /// <summary>

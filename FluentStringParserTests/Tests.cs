@@ -1250,8 +1250,8 @@ namespace FluentStringParserTests
 
         class Temp
         {
-            public double A { get; set; }
-            public decimal B { get; set; }
+            public int A { get; set; }
+            public long B { get; set; }
         }
 
         [TestMethod]
@@ -1264,10 +1264,10 @@ namespace FluentStringParserTests
                     .Seal();
 
             var obj = new Temp();
-            p(123.45 + "|" + 678.9012m + "|", obj);
+            p(123 + "|-" + (1 + (long)int.MaxValue) + "|", obj);
 
-            Assert.AreEqual(123.45, obj.A);
-            Assert.AreEqual(678.9012m, obj.B);
+            Assert.AreEqual(123, obj.A);
+            Assert.AreEqual(-1*(1 + (long)int.MaxValue), obj.B);
         }
     }
 }
