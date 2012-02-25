@@ -1251,6 +1251,8 @@ namespace FluentStringParserTests
         class Temp
         {
             public string A { get; set; }
+            public bool B { get; set; }
+            public bool C { get; set; }
         }
 
         [TestMethod]
@@ -1259,12 +1261,16 @@ namespace FluentStringParserTests
             var p =
                 FSBuilder
                     .Take<Temp>(",", "A")
+                    .Take<Temp>(",", "B")
+                    .Take<Temp>(",", "C")
                     .Seal();
 
             var obj = new Temp();
-            p("abcdef,", obj);
+            p("abcdef,1,true,", obj);
 
             Assert.AreEqual("abcdef", obj.A);
+            Assert.IsTrue(obj.B);
+            Assert.IsTrue(obj.C);
         }
     }
 }

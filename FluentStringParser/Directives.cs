@@ -62,6 +62,11 @@ namespace FluentStringParser
             throw new NotImplementedException();
         }
 
+        private static Exception _Exec(Exception e)
+        {
+            return e;
+        }
+
         public Action<string, T> Seal()
         {
             var onFailure = GetOnFailure();
@@ -80,6 +85,9 @@ namespace FluentStringParser
 
             // Being the catch block for the method wide try/catch
             il.BeginCatchBlock(typeof(Exception));                          // exception
+
+            il.Emit(OpCodes.Call, typeof(FSTemplate<T>).GetMethod("_Exec", BindingFlags.Static | BindingFlags.NonPublic));  // exception
+            
             var skipFailure = il.DefineLabel();
 
             // Don't re-run the failure callback,

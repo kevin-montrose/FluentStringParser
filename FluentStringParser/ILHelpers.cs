@@ -803,7 +803,111 @@ namespace FluentStringParser
             il.MarkLabel(finished);
         }
 
-        internal static void NewParseImpl(ILGenerator il, Type memberType, string dateFormat)
+        /// <summary>
+        /// Given a stack of
+        ///   - start char[]
+        ///   
+        /// loads the character at start+offset, compares insensitively to toChar, and brances to onFalse
+        /// if they are not equal.
+        /// 
+        /// Falls through if they are equal.
+        ///
+        /// In both cases the stack afterwards is:
+        ///   - start char[]
+        ///   
+        /// Maye trash the scratch integers
+        /// </summary>
+        private static void CharacterCompare(this ILGenerator il, int offset, char toChar, Label onFalse)
+        {
+            var match = il.DefineLabel();
+
+            var upper = Char.ToUpperInvariant(toChar);
+            var lower = Char.ToLowerInvariant(toChar);
+
+            // start char[]
+            il.StoreScratchInt();               // char[]
+            il.LoadScratchInt();                // start char[]
+
+            il.Emit(OpCodes.Ldc_I4, offset);        // offset start char[]
+            il.Emit(OpCodes.Add);                   // <start+offset> char[]
+            il.StoreScratchInt2();                  // char[]
+            il.Emit(OpCodes.Dup);                   // char[] char[]
+            il.LoadScratchInt2();                   // <start+offset> char[] char[]
+            il.Emit(OpCodes.Ldelem, typeof(char));  // char char[]
+            il.Emit(OpCodes.Dup);                   // char char char[]
+
+            il.Emit(OpCodes.Ldc_I4, upper); // upper char char char[]
+            il.Emit(OpCodes.Beq, match);    // char char[]
+            il.Emit(OpCodes.Dup);           // char char char[]
+            il.Emit(OpCodes.Ldc_I4, lower); // lower char char char[]
+            il.Emit(OpCodes.Beq, match);    // char char[]
+            
+            // We know there's no match now
+            il.Emit(OpCodes.Pop);           // char[]
+            il.LoadScratchInt();            // start char[]
+            il.Emit(OpCodes.Br, onFalse);   // start char[]
+
+            // Branch here if we've got a match
+            il.MarkLabel(match);            // char char[]
+            il.Emit(OpCodes.Pop);           // char[]
+            il.LoadScratchInt();            // start char[]
+        }
+        
+        /// <summary>
+        /// Parses a bool, of the form TRUE (case insensitive) or 1;
+        /// everything else is false
+        /// 
+        /// Expects a stack of:
+        ///   - length start char[]
+        ///   
+        /// May trash scratch values
+        /// 
+        /// Stack will be empty at end
+        /// </summary>
+        private static void NewParseBool(ILGenerator il)
+        {
+            var isFalse = il.DefineLabel();
+            var isOneLetter = il.DefineLabel();
+            var finished = il.DefineLabel();
+            var isTrue = il.DefineLabel();
+            var maybeTrue = il.DefineLabel();
+
+            // length start char[]
+            
+            il.Emit(OpCodes.Dup);               // length length start char[]
+            il.Emit(OpCodes.Ldc_I4_1);          // 1 length length start char[]
+            il.Emit(OpCodes.Beq, isOneLetter);  // length start char[]
+            il.Emit(OpCodes.Ldc_I4_4);          // 4 length start char[]
+            il.Emit(OpCodes.Beq, maybeTrue);    // start char[]
+
+            il.Emit(OpCodes.Br, isFalse);      // start char[]
+
+            il.MarkLabel(isOneLetter);              // length start char[]
+            il.Emit(OpCodes.Pop);                   // start char[]
+            il.Emit(OpCodes.Ldelem, typeof(char));  // char
+            il.Emit(OpCodes.Ldc_I4, '1');           // '1' char
+            il.Emit(OpCodes.Ceq);                   // value
+            il.Emit(OpCodes.Br, finished);          // value
+
+            il.MarkLabel(maybeTrue);              // start char[]
+            il.CharacterCompare(0, 'T', isFalse); // start char[]
+            il.CharacterCompare(1, 'R', isFalse); // start char[]
+            il.CharacterCompare(2, 'U', isFalse); // start char[]
+            il.CharacterCompare(3, 'E', isFalse); // start char[]
+            il.Emit(OpCodes.Pop);                 // char[]
+            il.Emit(OpCodes.Pop);                 // --empty--
+            il.Emit(OpCodes.Ldc_I4_1);            // true
+            il.Emit(OpCodes.Br, finished);        // true
+
+            il.MarkLabel(isFalse);              // start char[]
+            il.Emit(OpCodes.Pop);               // char[]
+            il.Emit(OpCodes.Pop);               // --empty--
+            il.Emit(OpCodes.Ldc_I4_0);          // false
+
+            il.MarkLabel(finished);
+        }
+
+        internal static void NewParseImpl(ILGenerator il, Type memberType, string format)
         {
             // length start char[] *built
 
@@ -813,6 +917,12 @@ namespace FluentStringParser
 
                 il.Emit(OpCodes.Newobj, strConst);  // string *built
 
+                return;
+            }
+
+            if (memberType == typeof(bool))
+            {
+                NewParseBool(il);  // value *built
                 return;
             }
         }
@@ -826,9 +936,6 @@ namespace FluentStringParser
         /// 
         /// The stack is empty at the end, and scratch integers may be smashed.
         /// </summary>
-        /// <param name="il"></param>
-        /// <param name="member"></param>
-        /// <param name="dateFormat"></param>
         internal static void NewParseAndSet(this ILGenerator il, MemberInfo member, string dateFormat)
         {
             var memberType = 
