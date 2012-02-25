@@ -1250,8 +1250,8 @@ namespace FluentStringParserTests
 
         class Temp
         {
-            public DateTime A { get; set; }
-            public DateTime B { get; set; }
+            public TimeSpan A { get; set; }
+            public TimeSpan B { get; set; }
         }
 
         [TestMethod]
@@ -1260,17 +1260,17 @@ namespace FluentStringParserTests
             var p =
                 FSBuilder
                     .Take<Temp>("|", "A")
-                    .Take<Temp>("|", "B", format: "D")
+                    .Take<Temp>("|", "B", format: "G")
                     .Seal();
 
-            var now1 = DateTime.UtcNow;
-            var now2 = now1.AddDays(-1);
+            var now1 = TimeSpan.FromMilliseconds(1234567879);
+            var now2 = now1 + TimeSpan.FromSeconds(314);
 
             var obj = new Temp();
-            p(now1.ToString() + "|" + now2.ToString("D") + "|", obj);
+            p(now1.ToString() + "|" + now2.ToString("G") + "|", obj);
 
             Assert.AreEqual(now1.ToString(), obj.A.ToString());
-            Assert.AreEqual(now2.ToString("D"), obj.B.ToString("D"));
+            Assert.AreEqual(now2.ToString("G"), obj.B.ToString("G"));
         }
     }
 }

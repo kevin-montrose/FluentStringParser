@@ -944,6 +944,30 @@ namespace FluentStringParser
                     il.Emit(OpCodes.Call, invariantCulture);    // IFormatProvider format string *built
                     il.Emit(OpCodes.Call, parse);               // DateTime *built
                 }
+
+                return;
+            }
+
+            if (memberType == typeof(TimeSpan))
+            {
+                il.Emit(OpCodes.Newobj, strConst);  // string *built
+
+                if (string.IsNullOrEmpty(format))
+                {
+                    var parse = typeof(TimeSpan).GetMethod("Parse", new[] { typeof(string) });
+                    il.Emit(OpCodes.Call, parse);   // DateTime *built
+                }
+                else
+                {
+                    var invariantCulture = typeof(CultureInfo).GetProperty("CurrentCulture").GetGetMethod();
+                    var parse = typeof(TimeSpan).GetMethod("ParseExact", new[] { typeof(string), typeof(string), typeof(IFormatProvider) });
+
+                    il.Emit(OpCodes.Ldstr, format);             // format string *built
+                    il.Emit(OpCodes.Call, invariantCulture);    // IFormatProvider format string *built
+                    il.Emit(OpCodes.Call, parse);               // DateTime *built
+                }
+
+                return;
             }
         }
 
