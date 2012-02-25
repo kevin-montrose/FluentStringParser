@@ -1250,8 +1250,10 @@ namespace FluentStringParserTests
 
         class Temp
         {
-            public int A { get; set; }
-            public long B { get; set; }
+            public enum E { A = 1, B = 2 };
+
+            public E A { get; set; }
+            public E B { get; set; }
         }
 
         [TestMethod]
@@ -1264,10 +1266,10 @@ namespace FluentStringParserTests
                     .Seal();
 
             var obj = new Temp();
-            p(123 + "|-" + (1 + (long)int.MaxValue) + "|", obj);
+            p("1|B|", obj);
 
-            Assert.AreEqual(123, obj.A);
-            Assert.AreEqual(-1*(1 + (long)int.MaxValue), obj.B);
+            Assert.AreEqual(Temp.E.A, obj.A);
+            Assert.AreEqual(Temp.E.B, obj.B);
         }
     }
 }

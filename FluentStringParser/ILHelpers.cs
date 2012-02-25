@@ -920,7 +920,43 @@ namespace FluentStringParser
         /// </summary>
         private static void NewParseEnum(ILGenerator il, Type enumType)
         {
-            throw new NotImplementedException();
+            var underlying = Enum.GetUnderlyingType(enumType);
+            var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
+            var parseEnum = typeof(ILHelpers).GetMethod("_ParseEnum", BindingFlags.Static | BindingFlags.NonPublic);
+            parseEnum = parseEnum.MakeGenericMethod(enumType);
+
+            var notNumber = il.DefineLabel();
+            var finished = il.DefineLabel();
+
+            // length start char[]
+            il.StoreScratchInt();                   // start char[]
+            il.StoreScratchInt2();                  // char[]
+            il.Emit(OpCodes.Dup);                   // char[] char[]
+            il.LoadScratchInt2();                   // start char[] char[]
+            il.Emit(OpCodes.Ldelem, typeof(char));  // char char[]
+            il.Emit(OpCodes.Dup);                   // char char char[]
+            il.Emit(OpCodes.Ldc_I4, '0');           // '0' char char char[]
+            il.Emit(OpCodes.Blt, notNumber);        // char char[]
+
+            il.Emit(OpCodes.Dup);                   // char char char[]
+            il.Emit(OpCodes.Ldc_I4, '9');           // '9' char char char[]
+            il.Emit(OpCodes.Bgt, notNumber);        // char char[]
+
+            il.Emit(OpCodes.Pop);                   // char[]
+            il.LoadScratchInt2();                    // start char[]
+            il.LoadScratchInt();                   // length start char[]
+            NewParseLong(il);                       // <long value>
+            il.ConvertToFromLong(underlying);       // value
+            il.Emit(OpCodes.Br, finished);          // value
+
+            il.MarkLabel(notNumber);                // char char[]
+            il.Emit(OpCodes.Pop);                   // char[]
+            il.LoadScratchInt2();                   // start char[]
+            il.LoadScratchInt();                    // length start char[]
+            il.Emit(OpCodes.Newobj, strConst);      // string
+            il.Emit(OpCodes.Call, parseEnum);       // value
+
+            il.MarkLabel(finished);                 // value
         }
 
         /// <summary>
