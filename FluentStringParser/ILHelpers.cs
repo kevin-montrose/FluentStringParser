@@ -906,15 +906,15 @@ namespace FluentStringParser
 
             il.MarkLabel(finished);
         }
-
+        
         internal static void NewParseImpl(ILGenerator il, Type memberType, string format)
         {
+            var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
+
             // length start char[] *built
 
             if (memberType == typeof(string))
             {
-                var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
-
                 il.Emit(OpCodes.Newobj, strConst);  // string *built
 
                 return;
@@ -924,6 +924,26 @@ namespace FluentStringParser
             {
                 NewParseBool(il);  // value *built
                 return;
+            }
+
+            if (memberType == typeof(DateTime))
+            {
+                il.Emit(OpCodes.Newobj, strConst);  // string *built
+
+                if (string.IsNullOrEmpty(format))
+                {
+                    var parse = typeof(DateTime).GetMethod("Parse", new[] { typeof(string) });
+                    il.Emit(OpCodes.Call, parse);   // DateTime *built
+                }
+                else
+                {
+                    var invariantCulture = typeof(CultureInfo).GetProperty("CurrentCulture").GetGetMethod();
+                    var parse = typeof(DateTime).GetMethod("ParseExact", new[] { typeof(string), typeof(string), typeof(IFormatProvider) });
+
+                    il.Emit(OpCodes.Ldstr, format);             // format string *built
+                    il.Emit(OpCodes.Call, invariantCulture);    // IFormatProvider format string *built
+                    il.Emit(OpCodes.Call, parse);               // DateTime *built
+                }
             }
         }
 

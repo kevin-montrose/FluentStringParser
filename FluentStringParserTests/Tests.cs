@@ -1250,9 +1250,8 @@ namespace FluentStringParserTests
 
         class Temp
         {
-            public string A { get; set; }
-            public bool B { get; set; }
-            public bool C { get; set; }
+            public DateTime A { get; set; }
+            public DateTime B { get; set; }
         }
 
         [TestMethod]
@@ -1260,17 +1259,18 @@ namespace FluentStringParserTests
         {
             var p =
                 FSBuilder
-                    .Take<Temp>(",", "A")
-                    .Take<Temp>(",", "B")
-                    .Take<Temp>(",", "C")
+                    .Take<Temp>("|", "A")
+                    .Take<Temp>("|", "B", format: "D")
                     .Seal();
 
-            var obj = new Temp();
-            p("abcdef,1,true,", obj);
+            var now1 = DateTime.UtcNow;
+            var now2 = now1.AddDays(-1);
 
-            Assert.AreEqual("abcdef", obj.A);
-            Assert.IsTrue(obj.B);
-            Assert.IsTrue(obj.C);
+            var obj = new Temp();
+            p(now1.ToString() + "|" + now2.ToString("D") + "|", obj);
+
+            Assert.AreEqual(now1.ToString(), obj.A.ToString());
+            Assert.AreEqual(now2.ToString("D"), obj.B.ToString("D"));
         }
     }
 }
