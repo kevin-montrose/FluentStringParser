@@ -86,7 +86,7 @@ namespace FluentStringParser
             // Being the catch block for the method wide try/catch
             il.BeginCatchBlock(typeof(Exception));                          // exception
 
-            il.Emit(OpCodes.Call, typeof(FSTemplate<T>).GetMethod("_Exec", BindingFlags.Static | BindingFlags.NonPublic));  // exception
+            //il.Emit(OpCodes.Call, typeof(FSTemplate<T>).GetMethod("_Exec", BindingFlags.Static | BindingFlags.NonPublic));  // exception
             
             var skipFailure = il.DefineLabel();
 
