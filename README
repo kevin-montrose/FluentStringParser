@@ -24,8 +24,7 @@ can be parsed at this time.  DateTimes and TimeSpans can have
 custom format strings specified for parsing them.
 
 If a directive select an empty string, the corresponding field or
-property will not be set.  Note that it will not be cleared
-either.
+property will be set to it's default value.
 
 Back, Else, and TakeRest are available only as the second or later
 directives in a parser.  Only one of each may appear in a 
