@@ -1262,11 +1262,11 @@ namespace FluentStringParserTests
             var p =
                 FSBuilder
                     .Take<Temp>("|", "A")
-                    .Take<Temp>("|", "B")
+                    .TakeRest("B")
                     .Seal();
 
             var obj = new Temp();
-            p("1|B|", obj);
+            p("1|B", obj);
 
             Assert.AreEqual(Temp.E.A, obj.A);
             Assert.AreEqual(Temp.E.B, obj.B);

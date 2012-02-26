@@ -318,23 +318,6 @@ namespace FluentStringParser
             il.Emit(OpCodes.Ldc_I4, Until.Length); // Until.Length <accumulator - start> start char[] *built
             il.Emit(OpCodes.Sub);                  // <accumulator-start-Until.Length> start char[] *built
             il.NewParseAndSet(Into, Format);       // --empty--
-
-            /*il.StoreScratchInt();                   // *built
-            il.LoadToParse();                       // <*char[] toParse> *built
-            il.LoadScratchInt();                    // start <*char[] toParse> *built
-            il.LoadParseBuffer();                   // <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Ldc_I4_0);              // 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.LoadAccumulator();                   // accumulator 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.LoadScratchInt();                    // start accumulator 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Sub);                   // <accumulator-start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length <accumulator-start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Sub);                   // <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Dup);                   // <accumulator-start-Until.Length> <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.StoreScratchInt();                   // <accumulator-start-Until.Length> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.CopyArray();                         // *built
-            il.LoadParseBuffer();                   // <*char[] toParse> *built
-            il.LoadScratchInt();                    // length <*char[] toParse> *built
-            il.ParseAndSet(Into, Format);*/
         }
 
         internal override Action<string, T> GetOnFailure()
@@ -357,24 +340,13 @@ namespace FluentStringParser
 
         internal override void Emit(ILGenerator il)
         {
-            il.LoadObjectBeingBuild();  // *built
-
-            il.LoadToParse();           // <*char[] toParse> *built
-            il.LoadAccumulator();       // start <*char[] toParse> *built
-            il.LoadParseBuffer();       // <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Ldc_I4_0);  // 0 <*char[] parseBuffer> start <*char[] toParse> *built
-
-            il.LoadToParseLength();     // toParseLength 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.LoadAccumulator();       // start toParseLength 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.Emit(OpCodes.Sub);       // <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-
-            il.Emit(OpCodes.Dup);       // <toParseLength - start> <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-            il.StoreScratchInt();       // <toParseLength - start> 0 <*char[] parseBuffer> start <*char[] toParse> *built
-
-            il.CopyArray();                     // *built
-            il.LoadParseBuffer();               // *char[] *built
-            il.LoadScratchInt();                // length *char[] *built
-            il.ParseAndSet(Into, Format);
+            il.LoadObjectBeingBuild();             // *built
+            il.LoadToParse();                      // char[] *built
+            il.LoadAccumulator();                  // start char[] *built
+            il.LoadToParseLength();                // toParse.Length start char[] *built
+            il.LoadAccumulator();                  // start toParse.Length start char[] *built
+            il.Emit(OpCodes.Sub);                  // <toParse.Length - start> start char[] *built
+            il.NewParseAndSet(Into, Format);       // --empty--
         }
     }
 
