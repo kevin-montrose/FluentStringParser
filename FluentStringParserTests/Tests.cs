@@ -112,8 +112,6 @@ namespace FluentStringParserTests
 
         static Tests()
         {
-            return;
-
             var step1 =
                 FSBuilder
                 .Until<LogRow>(" ");
