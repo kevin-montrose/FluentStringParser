@@ -440,6 +440,17 @@ namespace FluentStringParserTests
                 lines = input.ReadToEnd().Split('\n');
             }
 
+            // Equivalence check
+            foreach (var line in lines)
+            {
+                var reg = ParseWithRegex(line);
+                var index = ParseWithIndexOf(line);
+                var temp = ParseWithFTemplate(line);
+
+                Assert.AreEqual(reg.ToString(), index.ToString());
+                Assert.AreEqual(index.ToString(), temp.ToString());
+            }
+
             var regex = new Stopwatch();
             Action runRegex =
                 delegate

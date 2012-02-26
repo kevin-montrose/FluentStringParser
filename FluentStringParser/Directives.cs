@@ -5,6 +5,7 @@ using System.Text;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 
 namespace FluentStringParser
 {
@@ -64,6 +65,11 @@ namespace FluentStringParser
 
         private static Exception _Exec(Exception e)
         {
+            if(!(e is ILHelpers.ControlException))
+            {
+                Debug.WriteLine(e);
+            }
+
             return e;
         }
 
@@ -86,7 +92,9 @@ namespace FluentStringParser
             // Being the catch block for the method wide try/catch
             il.BeginCatchBlock(typeof(Exception));                          // exception
 
-            //il.Emit(OpCodes.Call, typeof(FSTemplate<T>).GetMethod("_Exec", BindingFlags.Static | BindingFlags.NonPublic));  // exception
+#if DEBUG
+            il.Emit(OpCodes.Call, typeof(FSTemplate<T>).GetMethod("_Exec", BindingFlags.Static | BindingFlags.NonPublic));  // exception
+#endif
             
             var skipFailure = il.DefineLabel();
 
@@ -174,6 +182,7 @@ namespace FluentStringParser
         internal override void Emit(ILGenerator il)
         {
             var failure = il.DefineLabel();
+            var finished = il.DefineLabel();
 
             il.Emit(OpCodes.Ldarg_0);       // toParse
             il.Emit(OpCodes.Ldstr, Until);  // Until toParse
@@ -187,10 +196,18 @@ namespace FluentStringParser
             il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length index
             il.Emit(OpCodes.Add);                   // <index+Until.Length>
             il.StoreAccumulator();                  // --empty--
+            il.Emit(OpCodes.Br, finished);          // --empty--
 
             // branch here if we haven't found Until
             il.MarkLabel(failure);          // index
             il.CallFailureAndReturn<T>(1);  // --empty--
+
+            il.MarkLabel(finished);         // --empty--
+        }
+
+        internal override Action<string, T> GetOnFailure()
+        {
+            return (s, o) => { };
         }
     }
 
@@ -257,6 +274,7 @@ namespace FluentStringParser
         internal override void Emit(ILGenerator il)
         {
             var failure = il.DefineLabel();
+            var finished = il.DefineLabel();
 
             il.LoadObjectBeingBuild();      // *built
             il.Emit(OpCodes.Ldarg_0);       // toParse *built
@@ -280,10 +298,13 @@ namespace FluentStringParser
             il.LoadScratchInt2();                   // start index start char[] *built
             il.Emit(OpCodes.Sub);                   // <index-start> start char *built
             il.NewParseAndSet(Into, Format);        // --empty--
+            il.Emit(OpCodes.Br, finished);          // --empty--
 
             // branch here if we haven't found Until
             il.MarkLabel(failure);          // index *built
             il.CallFailureAndReturn<T>(2);  // --empty--
+
+            il.MarkLabel(finished);         // --empty--
         }
 
         internal override Action<string, T> GetOnFailure()
