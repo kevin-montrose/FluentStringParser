@@ -18,7 +18,6 @@ namespace FluentStringParser
             var toParseLength = il.DeclareLocal(typeof(int));
             var toParseAsChar = il.DeclareLocal(typeof(char[]));
             var accumulator = il.DeclareLocal(typeof(int));
-            var parseBuffer = il.DeclareLocal(typeof(char[]));
             var scratchInt = il.DeclareLocal(typeof(int));
             var scratchLong = il.DeclareLocal(typeof(long));
             var scratchInt2 = il.DeclareLocal(typeof(int));
@@ -34,10 +33,6 @@ namespace FluentStringParser
             il.Emit(OpCodes.Ldc_I4_0);           // 0
             il.Emit(OpCodes.Stloc, accumulator); // --empty--
 
-            il.LoadToParseLength();                 // toParse.Length
-            il.Emit(OpCodes.Newarr, typeof(char));  // *char
-            il.Emit(OpCodes.Stloc, parseBuffer);    // --empty--
-
             il.Emit(OpCodes.Ldc_I4_0);          // 0
             il.Emit(OpCodes.Stloc, scratchInt); // --empty--
 
@@ -49,7 +44,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Stloc, scratchInt2);// --empty--
             
             // Break this out for code coverage purposes
-            _InitializeFailureCheck(toParseLength, toParseAsChar, accumulator, parseBuffer, scratchInt, scratchLong, scratchInt2);
+            _InitializeFailureCheck(toParseLength, toParseAsChar, accumulator, scratchInt, scratchLong, scratchInt2);
         }
 
         [ExcludeFromCodeCoverage]
@@ -57,7 +52,6 @@ namespace FluentStringParser
             LocalBuilder toParseLength, 
             LocalBuilder toParseAsChar,
             LocalBuilder accumulator,
-            LocalBuilder parseBuffer,
             LocalBuilder scratchInt,
             LocalBuilder scratchLong,
             LocalBuilder scratchInt2)
@@ -65,10 +59,9 @@ namespace FluentStringParser
             if (toParseLength.LocalIndex != 0) throw new InvalidOperationException();
             if (toParseAsChar.LocalIndex != 1) throw new InvalidOperationException();
             if (accumulator.LocalIndex != 2) throw new InvalidOperationException();
-            if (parseBuffer.LocalIndex != 3) throw new InvalidOperationException();
-            if (scratchInt.LocalIndex != 4) throw new InvalidOperationException();
-            if (scratchLong.LocalIndex != 5) throw new InvalidOperationException();
-            if (scratchInt2.LocalIndex != 6) throw new InvalidOperationException();
+            if (scratchInt.LocalIndex != 3) throw new InvalidOperationException();
+            if (scratchLong.LocalIndex != 4) throw new InvalidOperationException();
+            if (scratchInt2.LocalIndex != 5) throw new InvalidOperationException();
         }
 
         internal static void LoadObjectBeingBuild(this ILGenerator il)
@@ -116,39 +109,34 @@ namespace FluentStringParser
             il.Emit(OpCodes.Stloc_2);
         }
 
-        internal static void LoadParseBuffer(this ILGenerator il)
-        {
-            il.Emit(OpCodes.Ldloc_3);
-        }
-
         internal static void LoadScratchInt(this ILGenerator il)
         {
-            il.Emit(OpCodes.Ldloc, 4);
+            il.Emit(OpCodes.Ldloc, 3);
         }
 
         internal static void StoreScratchInt(this ILGenerator il)
         {
-            il.Emit(OpCodes.Stloc, 4);
+            il.Emit(OpCodes.Stloc, 3);
         }
 
         internal static void LoadScratchLong(this ILGenerator il)
         {
-            il.Emit(OpCodes.Ldloc, 5);
+            il.Emit(OpCodes.Ldloc, 4);
         }
 
         internal static void StoreScratchLong(this ILGenerator il)
         {
-            il.Emit(OpCodes.Stloc, 5);
+            il.Emit(OpCodes.Stloc, 4);
         }
 
         internal static void LoadScratchInt2(this ILGenerator il)
         {
-            il.Emit(OpCodes.Ldloc, 6);
+            il.Emit(OpCodes.Ldloc, 5);
         }
 
         internal static void StoreScratchInt2(this ILGenerator il)
         {
-            il.Emit(OpCodes.Stloc, 6);
+            il.Emit(OpCodes.Stloc, 5);
         }
 
         internal static void IncrementAccumulator(this ILGenerator il)
