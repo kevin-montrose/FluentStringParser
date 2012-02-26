@@ -550,7 +550,15 @@ namespace FluentStringParser
 
             if (memberType == typeof(string))
             {
-                il.Emit(OpCodes.Newobj, strConst);  // string *built
+                var substring = typeof(string).GetMethod("Substring", new[]{typeof(int), typeof(int)});
+
+                il.StoreScratchInt();               // start char[] *built
+                il.StoreScratchInt2();              // char[] *built
+                il.Emit(OpCodes.Pop);               // *built
+                il.Emit(OpCodes.Ldarg_0);           // string *built
+                il.LoadScratchInt2();               // start string *built
+                il.LoadScratchInt();                // length start string *built
+                il.Emit(OpCodes.Call, substring);   // string *built
 
                 return;
             }

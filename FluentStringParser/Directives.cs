@@ -216,6 +216,7 @@ namespace FluentStringParser
             il.MarkLabel(finished);
         }
 
+        [ExcludeFromCodeCoverage]
         internal override Action<string, T> GetOnFailure()
         {
             return (s, o) => { };

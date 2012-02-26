@@ -435,6 +435,11 @@ namespace FluentStringParserTests
         [TestMethod]
         public void SpeedComparison()
         {
+            // THIS TEST IS EXPECTED TO FAIL
+            //   String performance in the hand written case is *very good*, if you
+            //   can gin up better code for this case in the FSP, submit a patch.
+            //   It's an interesting project.
+
             string[] lines;
             using (var input = new StreamReader(Assembly.GetExecutingAssembly().GetManifestResourceStream("FluentStringParserTests.TestData.txt")))
             {
@@ -1098,6 +1103,11 @@ namespace FluentStringParserTests
         [TestMethod]
         public void SimpleStringPerf()
         {
+            // THIS TEST IS EXPECTED TO FAIL
+            //   String performance in the hand written case is *very good*, if you
+            //   can gin up better code for this case in the FSP, submit a patch.
+            //   It's an interesting project.
+
             var regex = new Regex(@"([^,]*?),([^,]*?),([^,]*?),([^,]*)", RegexOptions.Compiled);
             var parserTask =
                 FSBuilder
