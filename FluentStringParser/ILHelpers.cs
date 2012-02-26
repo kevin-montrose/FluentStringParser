@@ -396,7 +396,6 @@ namespace FluentStringParser
         private static void NewParseEnum(ILGenerator il, Type enumType)
         {
             var underlying = Enum.GetUnderlyingType(enumType);
-            var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
             var parseEnum = typeof(ILHelpers).GetMethod("_ParseEnum", BindingFlags.Static | BindingFlags.NonPublic);
             parseEnum = parseEnum.MakeGenericMethod(enumType);
 
@@ -428,7 +427,7 @@ namespace FluentStringParser
             il.Emit(OpCodes.Pop);                   // char[]
             il.LoadScratchInt2();                   // start char[]
             il.LoadScratchInt();                    // length start char[]
-            il.Emit(OpCodes.Newobj, strConst);      // string
+            SubstringAsNewString(il);               // string
             il.Emit(OpCodes.Call, parseEnum);       // value
 
             il.MarkLabel(finished);                 // value
@@ -542,23 +541,35 @@ namespace FluentStringParser
             il.MarkLabel(finished);
         }
 
+        /// <summary>
+        /// Expects a stack of
+        ///  - length start char[]
+        ///  
+        /// Ends with 
+        ///  - string
+        ///  
+        /// may smash the scratch numbers
+        /// </summary>
+        internal static void SubstringAsNewString(ILGenerator il)
+        {
+            var substring = typeof(string).GetMethod("Substring", new[] { typeof(int), typeof(int) });
+
+            il.StoreScratchInt();               // start char[] *built
+            il.StoreScratchInt2();              // char[] *built
+            il.Emit(OpCodes.Pop);               // *built
+            il.Emit(OpCodes.Ldarg_0);           // string *built
+            il.LoadScratchInt2();               // start string *built
+            il.LoadScratchInt();                // length start string *built
+            il.Emit(OpCodes.Call, substring);   // string *built
+        }
+
         internal static void NewParseImpl(ILGenerator il, Type memberType, string format)
         {
-            var strConst = typeof(string).GetConstructor(new[] { typeof(char[]), typeof(int), typeof(int) });
-
             // length start char[] *built
 
             if (memberType == typeof(string))
             {
-                var substring = typeof(string).GetMethod("Substring", new[]{typeof(int), typeof(int)});
-
-                il.StoreScratchInt();               // start char[] *built
-                il.StoreScratchInt2();              // char[] *built
-                il.Emit(OpCodes.Pop);               // *built
-                il.Emit(OpCodes.Ldarg_0);           // string *built
-                il.LoadScratchInt2();               // start string *built
-                il.LoadScratchInt();                // length start string *built
-                il.Emit(OpCodes.Call, substring);   // string *built
+                SubstringAsNewString(il);
 
                 return;
             }
@@ -571,7 +582,7 @@ namespace FluentStringParser
 
             if (memberType == typeof(DateTime))
             {
-                il.Emit(OpCodes.Newobj, strConst);  // string *built
+                SubstringAsNewString(il);           // string *built
 
                 if (string.IsNullOrEmpty(format))
                 {
@@ -593,7 +604,7 @@ namespace FluentStringParser
 
             if (memberType == typeof(TimeSpan))
             {
-                il.Emit(OpCodes.Newobj, strConst);  // string *built
+                SubstringAsNewString(il);  // string *built
 
                 if (string.IsNullOrEmpty(format))
                 {
@@ -623,7 +634,7 @@ namespace FluentStringParser
             var parseMethodCall = ParseMethodFor(memberType);
             if (parseMethodCall != null)
             {
-                il.Emit(OpCodes.Newobj, strConst);      // string *built
+                SubstringAsNewString(il);               // string *built
                 il.Emit(OpCodes.Call, parseMethodCall); // value *built
                 return;
             }
