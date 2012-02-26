@@ -1262,7 +1262,7 @@ namespace FluentStringParserTests
             var p =
                 FSBuilder
                     .Take<Temp>("|", "A")
-                    .TakeRest("B")
+                    .Take(1, "B")
                     .Seal();
 
             var obj = new Temp();

@@ -410,20 +410,14 @@ namespace FluentStringParser
             il.Emit(OpCodes.Ldc_I4, N);     // N accumulator
             il.Emit(OpCodes.Add);           // <accumulator+N>
             il.LoadToParseLength();         // toParse.Length <accumulator+N>
-            il.Emit(OpCodes.Bge, failure);  // --empty--
+            il.Emit(OpCodes.Bgt, failure);  // --empty--
 
-            il.LoadToParse();                 // <char[]* toParse>
-            il.LoadAccumulator();             // accumulator <char[]* toParse>
-            il.LoadParseBuffer();             // <char[]* parseBuffer> acccumulator <char[]* toParse>
-            il.Emit(OpCodes.Ldc_I4_0);        // 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
-            il.Emit(OpCodes.Ldc_I4, N);       // N 0 <char[]* parseBuffer> acccumulator <char[]* toParse>
-            il.CopyArray();                   // --empty--
-
-            il.LoadObjectBeingBuild();        // *built
-            il.LoadParseBuffer();             // <char[]* parseBuffer> *built
-            il.Emit(OpCodes.Ldc_I4, N);       // N <char[]* parseBuffer> *built
-            il.ParseAndSet(Into, Format);     // --empty--
-            il.Emit(OpCodes.Br, finished);
+            il.LoadObjectBeingBuild();          // *built
+            il.LoadToParse();                   // char[] *built
+            il.LoadAccumulator();               // start char[] *built
+            il.Emit(OpCodes.Ldc_I4, N);         // length start char[] *built
+            il.NewParseAndSet(Into, Format);    // --empty--
+            il.Emit(OpCodes.Br, finished);      // --empty--
 
             // branch here if bounds checking fails
             il.MarkLabel(failure);          // --empty--
