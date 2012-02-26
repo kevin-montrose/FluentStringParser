@@ -636,6 +636,11 @@ namespace FluentStringParser
             il.ConvertToFromLong(memberType);
         }
 
+        private static T _SetNoValue<T>()
+        {
+            return default(T);
+        }
+
         /// <summary>
         /// Call this to emit IL that will parse whatever's on the stack into the appropriate type
         /// for member, and set member to it (on T, which is in arg 1).
@@ -651,22 +656,52 @@ namespace FluentStringParser
                 member is PropertyInfo ?
                     ((PropertyInfo)member).PropertyType :
                     ((FieldInfo)member).FieldType;
+            var isNullable = Nullable.GetUnderlyingType(memberType) != null;
             memberType = Nullable.GetUnderlyingType(memberType) ?? memberType;
+
+            var nullableType = isNullable ?  typeof(Nullable<>).MakeGenericType(memberType) : null;
+
+            var setNoValue = typeof(ILHelpers).GetMethod("_SetNoValue", BindingFlags.NonPublic | BindingFlags.Static).MakeGenericMethod(nullableType ?? memberType);
+
+            var noValue = il.DefineLabel();
+            var setMember = il.DefineLabel();
 
             // Stack Starts
             // - length start char[] *built
 
-            NewParseImpl(il, memberType, dateFormat);
+            il.Emit(OpCodes.Dup);           // length length start char[] *built
+            il.Emit(OpCodes.Ldc_I4_0);      // 0 length length start char[] *built
+            il.Emit(OpCodes.Beq, noValue);  // length start char[] *built
+
+            NewParseImpl(il, memberType, dateFormat);   // value *built
+
+            if (isNullable)
+            {
+                var nullableConst = nullableType.GetConstructor(new[] { memberType });
+                
+                il.Emit(OpCodes.Newobj, nullableConst); // value *built
+            }
+
+            il.Emit(OpCodes.Br, setMember); // value *built
+
+            // Branch here if there's not value
+            il.MarkLabel(noValue);  // length start char[] *built
+            il.Emit(OpCodes.Pop);
+            il.Emit(OpCodes.Pop);
+            il.Emit(OpCodes.Pop);
+            il.Emit(OpCodes.Call, setNoValue);
+
+            il.MarkLabel(setMember);    // value *built
 
             if (member is FieldInfo)
             {
                 var asField = (FieldInfo)member;
-                il.Emit(OpCodes.Stfld, asField);
+                il.Emit(OpCodes.Stfld, asField);    // --empty--
             }
             else
             {
                 var asProp = (PropertyInfo)member;
-                il.Emit(OpCodes.Call, asProp.GetSetMethod());
+                il.Emit(OpCodes.Call, asProp.GetSetMethod());   // --empty--
             }
         }
     }
