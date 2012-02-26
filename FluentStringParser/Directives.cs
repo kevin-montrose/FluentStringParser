@@ -174,38 +174,23 @@ namespace FluentStringParser
         internal override void Emit(ILGenerator il)
         {
             var failure = il.DefineLabel();
-            var forL = il.DefineLabel();
-            var possibleMatch = il.DefineLabel();
-            var resume = il.DefineLabel();
-            var finished = il.DefineLabel();
 
-            il.MarkLabel(forL);
+            il.Emit(OpCodes.Ldarg_0);       // toParse
+            il.Emit(OpCodes.Ldstr, Until);  // Until toParse
+            il.LoadAccumulator();           // accumulator Until toParse
+            il.Emit(OpCodes.Call, typeof(string).GetMethod("IndexOf", new[] { typeof(string), typeof(int) })); // index
+            il.Emit(OpCodes.Dup);           // index index
+            il.Emit(OpCodes.Ldc_I4_M1);     // -1 index index
+            il.Emit(OpCodes.Beq, failure);  // index
 
-            il.LoadAccumulator();                       // accumulator
-            il.LoadToParseLength();                     // toParse.Length accumulator
-            il.Emit(OpCodes.Ldc_I4, Until.Length - 1);  // <Until.Length - 1> toParse.Length accumulator
-            il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator
-            il.Emit(OpCodes.Beq_S, failure);            // --empty--
+            
+            il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length index
+            il.Emit(OpCodes.Add);                   // <index+Until.Length>
+            il.StoreAccumulator();                  // --empty--
 
-            il.LoadFromToParseAtAccumulator();  // char
-
-            il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char
-            il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
-
-            il.MarkLabel(resume);
-            il.IncrementAccumulator();
-            il.Emit(OpCodes.Br_S, forL);  // repeat the loop
-
-            //-- when we've got a hit on the first char in scratch comparsed to toParse, we come here --//
-            il.MarkLabel(possibleMatch);
-            il.CheckForMatchFromOne(Until, resume, finished);
-
-            //-- when something goes wrong, this gets called --//
-            il.MarkLabel(failure);  // --empty--
-            il.CallFailureAndReturn<T>(0);
-
-            //-- branch here when we've actually had success matching --//
-            il.MarkLabel(finished);
+            // branch here if we haven't found Until
+            il.MarkLabel(failure);          // index
+            il.CallFailureAndReturn<T>(1);  // --empty--
         }
     }
 
