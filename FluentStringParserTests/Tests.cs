@@ -13,6 +13,7 @@ using System.Threading;
 
 namespace FluentStringParserTests
 {
+#pragma warning disable 0169, 0649
     [TestClass]
     public class Tests
     {
@@ -1252,4 +1253,5 @@ namespace FluentStringParserTests
             Assert.IsNull(obj.C);
         }
     }
+#pragma warning restore 0169, 0649
 }
