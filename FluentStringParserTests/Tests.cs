@@ -1193,15 +1193,6 @@ namespace FluentStringParserTests
             var medianHand = results[1].OrderBy(o => o).ElementAt(results[1].Count / 2);
             var medianParser = results[2].OrderBy(o => o).ElementAt(results[2].Count / 2);
 
-            // before buffer attempts
-            // regex: 9591
-            // parser: 1499
-            // hand: 410
-
-            // after removing a buffer
-            // hand: 410
-            // parser: 667
-
             Assert.IsTrue(medianRegex > medianHand, "Regex faster than hand rolled; invalid test");
             Assert.IsTrue(medianHand > medianParser, "Hand [" + medianHand + "] faster than generated [" + medianParser + "]; bad parser");
         }
@@ -1248,30 +1239,6 @@ namespace FluentStringParserTests
             Assert.IsTrue(obj.A);
             Assert.IsFalse(obj.B);
             Assert.IsNull(obj.C);
-        }
-
-        class Temp
-        {
-            public enum E { A = 1, B = 2 };
-
-            public E A { get; set; }
-            public E B { get; set; }
-        }
-
-        [TestMethod]
-        public void TempTest()
-        {
-            var p =
-                FSBuilder
-                    .Take<Temp>("|", "A")
-                    .Take(1, "B")
-                    .Seal();
-
-            var obj = new Temp();
-            p("1|B", obj);
-
-            Assert.AreEqual(Temp.E.A, obj.A);
-            Assert.AreEqual(Temp.E.B, obj.B);
         }
     }
 }
