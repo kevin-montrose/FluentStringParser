@@ -499,38 +499,38 @@ namespace FluentStringParserTests
             runRegex();
             runTemplate();
             runIndexOf();
-            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
-            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds);
+            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds, "regex [" + regex.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
+            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds, "indexOf [" + indexOf.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
 
             runRegex();
             runIndexOf();
             runTemplate();
-            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
-            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds);
+            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds, "regex [" + regex.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
+            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds, "indexOf [" + indexOf.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
 
             runTemplate();
             runRegex();
             runIndexOf();
-            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
-            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds);
+            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds, "regex [" + regex.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
+            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds, "indexOf [" + indexOf.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
 
             runTemplate();
             runIndexOf();
             runRegex();
-            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
-            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds);
+            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds, "regex [" + regex.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
+            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds, "indexOf [" + indexOf.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
 
             runIndexOf();
             runTemplate();
             runRegex();
-            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
-            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds);
+            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds, "regex [" + regex.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
+            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds, "indexOf [" + indexOf.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
 
             runIndexOf();
             runRegex();
             runTemplate();
-            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds);
-            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds);
+            Assert.IsTrue(template.ElapsedMilliseconds < regex.ElapsedMilliseconds, "regex [" + regex.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
+            Assert.IsTrue(template.ElapsedMilliseconds < indexOf.ElapsedMilliseconds, "indexOf [" + indexOf.ElapsedMilliseconds + "] is faster than template [" + template.ElapsedMilliseconds + "]");
         }
 
         class DecimalObject
@@ -1193,13 +1193,17 @@ namespace FluentStringParserTests
             var medianHand = results[1].OrderBy(o => o).ElementAt(results[1].Count / 2);
             var medianParser = results[2].OrderBy(o => o).ElementAt(results[2].Count / 2);
 
-            // before pointer attempts
+            // before buffer attempts
             // regex: 9591
             // parser: 1499
             // hand: 410
 
+            // after removing a buffer
+            // hand: 410
+            // parser: 667
+
             Assert.IsTrue(medianRegex > medianHand, "Regex faster than hand rolled; invalid test");
-            Assert.IsTrue(medianHand > medianParser, "Hand faster than generated; bad parser");
+            Assert.IsTrue(medianHand > medianParser, "Hand [" + medianHand + "] faster than generated [" + medianParser + "]; bad parser");
         }
 
         class BoolObject
