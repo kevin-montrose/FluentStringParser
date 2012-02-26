@@ -182,27 +182,38 @@ namespace FluentStringParser
         internal override void Emit(ILGenerator il)
         {
             var failure = il.DefineLabel();
+            var forL = il.DefineLabel();
+            var possibleMatch = il.DefineLabel();
+            var resume = il.DefineLabel();
             var finished = il.DefineLabel();
 
-            il.Emit(OpCodes.Ldarg_0);       // toParse
-            il.Emit(OpCodes.Ldstr, Until);  // Until toParse
-            il.LoadAccumulator();           // accumulator Until toParse
-            il.Emit(OpCodes.Call, typeof(string).GetMethod("IndexOf", new[] { typeof(string), typeof(int) })); // index
-            il.Emit(OpCodes.Dup);           // index index
-            il.Emit(OpCodes.Ldc_I4_M1);     // -1 index index
-            il.Emit(OpCodes.Beq, failure);  // index
+            il.MarkLabel(forL);
 
-            
-            il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length index
-            il.Emit(OpCodes.Add);                   // <index+Until.Length>
-            il.StoreAccumulator();                  // --empty--
-            il.Emit(OpCodes.Br, finished);          // --empty--
+            il.LoadAccumulator();                       // accumulator
+            il.LoadToParseLength();                     // toParse.Length accumulator
+            il.Emit(OpCodes.Ldc_I4, Until.Length - 1);  // <Until.Length - 1> toParse.Length accumulator
+            il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator
+            il.Emit(OpCodes.Beq_S, failure);            // --empty--
 
-            // branch here if we haven't found Until
-            il.MarkLabel(failure);          // index
-            il.CallFailureAndReturn<T>(1);  // --empty--
+            il.LoadFromToParseAtAccumulator();  // char
 
-            il.MarkLabel(finished);         // --empty--
+            il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char
+            il.Emit(OpCodes.Beq_S, possibleMatch); // --empty--
+
+            il.MarkLabel(resume);
+            il.IncrementAccumulator();
+            il.Emit(OpCodes.Br_S, forL);  // repeat the loop
+
+            //-- when we've got a hit on the first char in scratch comparsed to toParse, we come here --//
+            il.MarkLabel(possibleMatch);
+            il.CheckForMatchFromOne(Until, resume, finished);
+
+            //-- when something goes wrong, this gets called --//
+            il.MarkLabel(failure);  // --empty--
+            il.CallFailureAndReturn<T>(0);
+
+            //-- branch here when we've actually had success matching --//
+            il.MarkLabel(finished);
         }
 
         internal override Action<string, T> GetOnFailure()
@@ -273,38 +284,53 @@ namespace FluentStringParser
 
         internal override void Emit(ILGenerator il)
         {
+            il.LoadObjectBeingBuild();  // *built
+            il.LoadAccumulator();       // start *built
+
             var failure = il.DefineLabel();
+            var forL = il.DefineLabel();
+            var possibleMatch = il.DefineLabel();
+            var resume = il.DefineLabel();
             var finished = il.DefineLabel();
 
-            il.LoadObjectBeingBuild();      // *built
-            il.Emit(OpCodes.Ldarg_0);       // toParse *built
-            il.Emit(OpCodes.Ldstr, Until);  // Until toParse *built
-            il.LoadAccumulator();           // accumulator Until toParse *built
-            il.Emit(OpCodes.Call, typeof(string).GetMethod("IndexOf", new []{ typeof(string), typeof(int) })); // index *built
-            il.Emit(OpCodes.Dup);           // index index *built
-            il.Emit(OpCodes.Ldc_I4_M1);     // -1 index index *built
-            il.Emit(OpCodes.Beq, failure);  // index *built
+            il.MarkLabel(forL);
 
-            il.StoreScratchInt();                   // *built
-            il.LoadToParse();                       // char[] *built
-            il.LoadAccumulator();                   // start char[] *built
-            il.StoreScratchInt2();                  // char[] *built
-            il.LoadScratchInt2();                   // start char[] *built
-            il.LoadScratchInt();                    // index start char[] *built
-            il.Emit(OpCodes.Ldc_I4, Until.Length);  // Until.Length index start char[] *built
-            il.Emit(OpCodes.Add);                   // <index+Until.Length> start char[] *built
-            il.StoreAccumulator();                  // start char[] *built
-            il.LoadScratchInt();                    // index start char[] *built
-            il.LoadScratchInt2();                   // start index start char[] *built
-            il.Emit(OpCodes.Sub);                   // <index-start> start char *built
-            il.NewParseAndSet(Into, Format);        // --empty--
-            il.Emit(OpCodes.Br, finished);          // --empty--
+            il.LoadAccumulator();                       // accumulator start *built
+            il.LoadToParseLength();                     // toParse.Length accumulator start *built
+            il.Emit(OpCodes.Ldc_I4, Until.Length - 1);  // <Until.Length - 1> toParse.Length accumulator start *built
+            il.Emit(OpCodes.Sub);                       // <toParse.Length - Until.Length + 1> accumulator start *built
+            il.Emit(OpCodes.Beq, failure);              // start *built
 
-            // branch here if we haven't found Until
-            il.MarkLabel(failure);          // index *built
-            il.CallFailureAndReturn<T>(2);  // --empty--
+            il.LoadFromToParseAtAccumulator();  // char start *built
 
-            il.MarkLabel(finished);         // --empty--
+            il.Emit(OpCodes.Ldc_I4, Until[0]);  // char char start *built
+
+            il.Emit(OpCodes.Beq_S, possibleMatch); // start *built
+
+            il.MarkLabel(resume);
+            il.IncrementAccumulator();      // start *built
+            il.Emit(OpCodes.Br_S, forL);    // repeat the loop
+
+            //-- when we've got a hit on the first char in scratch comparsed to toParse, we come here --//
+            il.MarkLabel(possibleMatch);
+            il.CheckForMatchFromOne(Until, resume, finished);
+
+            //-- when something goes wrong, this gets called --//
+            il.MarkLabel(failure);          // start *built
+            il.CallFailureAndReturn<T>(2);
+
+            //-- branch here when we've actually had success matching --//
+            il.MarkLabel(finished);             // start *built
+
+            il.StoreScratchInt();                  // *built
+            il.LoadToParse();                      // char[] *built
+            il.LoadScratchInt();                   // start char[] *built
+            il.LoadAccumulator();                  // accumulator start char[] *built
+            il.LoadScratchInt();                   // start accumulator start char[] *built
+            il.Emit(OpCodes.Sub);                  // <accumulator - start> start char[] *built
+            il.Emit(OpCodes.Ldc_I4, Until.Length); // Until.Length <accumulator - start> start char[] *built
+            il.Emit(OpCodes.Sub);                  // <accumulator-start-Until.Length> start char[] *built
+            il.NewParseAndSet(Into, Format);       // --empty--
         }
 
         internal override Action<string, T> GetOnFailure()
