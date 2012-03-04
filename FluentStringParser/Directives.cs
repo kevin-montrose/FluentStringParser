@@ -11,6 +11,15 @@ namespace FluentStringParser
 {
     public abstract class FSTemplate<T> where T : class
     {
+        // Proper named method for code coverage purposes
+        //   ... which rather proves an argument of mine about
+        //   pointless testing boilerplate, but whatever.
+        [ExcludeFromCodeCoverage]
+        protected void _DefaultFailureImpl(string str, T obj)
+        {
+
+        }
+
         internal virtual FSTemplate<T> Append(FSTemplate<T> template)
         {
             var copy = new List<FSTemplate<T>>();
@@ -219,7 +228,7 @@ namespace FluentStringParser
         [ExcludeFromCodeCoverage]
         internal override Action<string, T> GetOnFailure()
         {
-            return (s, o) => { };
+            return _DefaultFailureImpl;
         }
     }
 
@@ -334,9 +343,10 @@ namespace FluentStringParser
             il.NewParseAndSet(Into, Format);       // --empty--
         }
 
+        [ExcludeFromCodeCoverage]
         internal override Action<string, T> GetOnFailure()
         {
-            return (a, b) => { };
+            return _DefaultFailureImpl;
         }
     }
 
@@ -445,9 +455,10 @@ namespace FluentStringParser
             il.StoreAccumulator();          // --empty--
         }
 
+        [ExcludeFromCodeCoverage]
         internal override Action<string, T> GetOnFailure()
         {
-            return (a, b) => { };
+            return _DefaultFailureImpl;
         }
     }
 }

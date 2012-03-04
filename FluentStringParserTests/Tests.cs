@@ -771,6 +771,8 @@ namespace FluentStringParserTests
 
             public TimeSpan TS { get; set; }
 
+            public Guid GD { get; set; }
+
             public override string ToString()
             {
                 return base.ToString();
@@ -934,6 +936,13 @@ namespace FluentStringParserTests
             {
                 FSBuilder.Take<UnsignedObject>(",", "TS", format: "asdf");
                 Assert.Fail("TimeSpan format string is invalid");
+            }
+            catch (Exception) { }
+
+            try
+            {
+                FSBuilder.Take<UnsignedObject>(",", "GD", format: "sadf");
+                Assert.Fail("Guid format string is invalid");
             }
             catch (Exception) { }
 
@@ -1261,6 +1270,33 @@ namespace FluentStringParserTests
             Assert.IsTrue(obj.A);
             Assert.IsFalse(obj.B);
             Assert.IsNull(obj.C);
+        }
+
+        class GuidObj
+        {
+            public Guid A { get; set; }
+            public Guid? B { get; set; }
+        }
+
+        [TestMethod]
+        public void Guids()
+        {
+            var parser =
+                FSBuilder
+                .Take<GuidObj>(",", "A")
+                .TakeRest("B", "X")
+                .Else((s, o) => { throw new Exception(); })
+                .Seal();
+
+            var a = Guid.NewGuid();
+            var b = Guid.NewGuid();
+
+            var obj = new GuidObj();
+
+            parser(a + "," + b.ToString("X"), obj);
+
+            Assert.AreEqual(obj.A, a);
+            Assert.AreEqual(obj.B.Value, b);
         }
     }
 #pragma warning restore 0169, 0649

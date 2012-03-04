@@ -624,6 +624,26 @@ namespace FluentStringParser
                 return;
             }
 
+            if (memberType == typeof(Guid))
+            {
+                SubstringAsNewString(il);   // string *built
+
+                if (string.IsNullOrEmpty(format))
+                {
+                    var parse = typeof(Guid).GetMethod("Parse", new[] { typeof(string) });
+                    il.Emit(OpCodes.Call, parse);   // Guid *built
+                }
+                else
+                {
+                    var parse = typeof(Guid).GetMethod("ParseExact", new[] { typeof(string), typeof(string) });
+                    
+                    il.Emit(OpCodes.Ldstr, format);     // format string *built
+                    il.Emit(OpCodes.Call, parse);       // Guid *built
+                }
+
+                return;
+            }
+
             if (memberType.IsEnum)
             {
                 NewParseEnum(il, memberType);

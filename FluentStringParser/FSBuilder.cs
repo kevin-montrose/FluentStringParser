@@ -19,10 +19,10 @@ namespace FluentStringParser
                     typeof(sbyte), typeof(byte), typeof(short), typeof(ushort),
                     typeof(int), typeof(uint), typeof(long), typeof(ulong),
                     typeof(float), typeof(double), typeof(decimal), typeof(bool),
-                    typeof(DateTime), typeof(TimeSpan), typeof(string)
+                    typeof(DateTime), typeof(TimeSpan), typeof(string), typeof(Guid)
                 }.Contains(t);
 
-            if (!known && !t.IsEnum) throw new ArgumentException(name + " is not a supported type");
+            if (!known && !t.IsEnum) throw new ArgumentException(name + " (" + t.Name + ") is not a supported type");
         }
 
         private static void ValidateMember<T>(MemberInfo member, string format)
@@ -72,9 +72,10 @@ namespace FluentStringParser
                 if (member is PropertyInfo) t = ((PropertyInfo)member).PropertyType;
                 if (member is FieldInfo) t = ((FieldInfo)member).FieldType;
 
-                if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?)))
+                if (!(t == typeof(DateTime) || t == typeof(DateTime?) || t == typeof(TimeSpan) || t == typeof(TimeSpan?) ||
+                      t == typeof(Guid) || t == typeof(Guid?)))
                 {
-                    throw new ArgumentException(member.Name + " is not a DateTime or TimeSpan, and cannot have a format specified");
+                    throw new ArgumentException(member.Name + " is not a DateTime, TimeSpan, or GUID and cannot have a format specified");
                 }
 
                 try
@@ -83,9 +84,15 @@ namespace FluentStringParser
                     {
                         DateTime.UtcNow.ToString(format);
                     }
-                    else
+
+                    if (t == typeof(TimeSpan) || t == typeof(TimeSpan?))
                     {
                         TimeSpan.FromSeconds(1).ToString(format);
+                    }
+
+                    if (t == typeof(Guid) || t == typeof(Guid?))
+                    {
+                        Guid.NewGuid().ToString(format);
                     }
                 }
                 catch (FormatException f)
